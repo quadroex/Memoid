@@ -1,0 +1,354 @@
+{
+  "info": {
+    "name": "Memoid API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7113",
+      "type": "string"
+    },
+    {
+      "key": "createdCategoryId",
+      "value": "5",
+      "type": "string"
+    },
+    {
+      "key": "createdTemplateId",
+      "value": "5",
+      "type": "string"
+    },
+    {
+      "key": "createdGeneratedMemeId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Meme Categories",
+      "item": [
+        {
+          "name": "GET all categories",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-categories"
+          }
+        },
+        {
+          "name": "GET all categories including inactive",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-categories?includeInactive=true"
+          }
+        },
+        {
+          "name": "GET category by id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-categories/1"
+          }
+        },
+        {
+          "name": "POST create category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Тестова категорія\",\n  \"description\": \"Категорія для ручного тестування API\"\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-categories"
+          }
+        },
+        {
+          "name": "POST duplicate category name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Тестова категорія\",\n  \"description\": \"Повторна категорія з тією самою назвою\"\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-categories"
+          }
+        },
+        {
+          "name": "POST empty category name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"   \",\n  \"description\": \"Некоректна категорія\"\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-categories"
+          }
+        },
+        {
+          "name": "PUT update category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Оновлена тестова категорія\",\n  \"description\": \"Оновлений опис категорії\",\n  \"isActive\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-categories/{{createdCategoryId}}"
+          }
+        },
+        {
+          "name": "DELETE category",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/meme-categories/{{createdCategoryId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Meme Templates",
+      "item": [
+        {
+          "name": "GET all templates",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-templates"
+          }
+        },
+        {
+          "name": "GET templates including inactive",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-templates?includeInactive=true"
+          }
+        },
+        {
+          "name": "GET templates by category",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-templates?categoryId=1"
+          }
+        },
+        {
+          "name": "GET template by id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/meme-templates/1"
+          }
+        },
+        {
+          "name": "POST create template",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Тестовий шаблон\",\n  \"imagePath\": \"/uploads/templates/test-template.png\",\n  \"memeCategoryId\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-templates"
+          }
+        },
+        {
+          "name": "POST invalid template image path",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Некоректний шаблон\",\n  \"imagePath\": \"/wrong-folder/test-template.png\",\n  \"memeCategoryId\": 1\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-templates"
+          }
+        },
+        {
+          "name": "POST template with non-existing category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Шаблон без категорії\",\n  \"imagePath\": \"/uploads/templates/no-category.png\",\n  \"memeCategoryId\": 999999\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-templates"
+          }
+        },
+        {
+          "name": "PUT update template",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Оновлений тестовий шаблон\",\n  \"imagePath\": \"/uploads/templates/test-template-updated.png\",\n  \"memeCategoryId\": 1,\n  \"isActive\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/meme-templates/{{createdTemplateId}}"
+          }
+        },
+        {
+          "name": "DELETE template",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/meme-templates/{{createdTemplateId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Generated Memes",
+      "item": [
+        {
+          "name": "GET all generated memes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/generated-memes"
+          }
+        },
+        {
+          "name": "GET favorite generated memes",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/generated-memes?favoritesOnly=true"
+          }
+        },
+        {
+          "name": "GET generated memes by template",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/generated-memes?templateId=1"
+          }
+        },
+        {
+          "name": "GET generated meme by id",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}"
+          }
+        },
+        {
+          "name": "POST create generated meme metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Тестовий створений мем\",\n  \"imagePath\": \"/uploads/generated/test-generated-meme.png\",\n  \"sourceType\": \"Template\",\n  \"memeTemplateId\": 1,\n  \"originalImagePath\": null,\n  \"topText\": \"Коли лабораторна\",\n  \"bottomText\": \"нарешті запускається\",\n  \"textPosition\": \"TopAndBottom\",\n  \"fontFamily\": \"Arial\",\n  \"fontSize\": 48,\n  \"textColor\": \"#ffffff\",\n  \"textBackgroundColor\": null,\n  \"appliedEffect\": \"None\"\n}"
+            },
+            "url": "{{baseUrl}}/api/generated-memes"
+          }
+        },
+        {
+          "name": "POST invalid generated meme source type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Некоректний тип джерела\",\n  \"imagePath\": \"/uploads/generated/invalid-source.png\",\n  \"sourceType\": \"Unknown\",\n  \"memeTemplateId\": 1,\n  \"originalImagePath\": null,\n  \"topText\": \"Test\",\n  \"bottomText\": \"Test\",\n  \"textPosition\": \"TopAndBottom\",\n  \"fontFamily\": \"Arial\",\n  \"fontSize\": 48,\n  \"textColor\": \"#ffffff\",\n  \"textBackgroundColor\": null,\n  \"appliedEffect\": \"None\"\n}"
+            },
+            "url": "{{baseUrl}}/api/generated-memes"
+          }
+        },
+        {
+          "name": "POST invalid generated meme image path",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Некоректний шлях\",\n  \"imagePath\": \"/wrong-folder/generated.png\",\n  \"sourceType\": \"Template\",\n  \"memeTemplateId\": 1,\n  \"originalImagePath\": null,\n  \"topText\": \"Test\",\n  \"bottomText\": \"Test\",\n  \"textPosition\": \"TopAndBottom\",\n  \"fontFamily\": \"Arial\",\n  \"fontSize\": 48,\n  \"textColor\": \"#ffffff\",\n  \"textBackgroundColor\": null,\n  \"appliedEffect\": \"None\"\n}"
+            },
+            "url": "{{baseUrl}}/api/generated-memes"
+          }
+        },
+        {
+          "name": "PUT update generated meme",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Оновлена назва тестового мема\",\n  \"isFavorite\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}"
+          }
+        },
+        {
+          "name": "PATCH toggle favorite",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}/favorite"
+          }
+        },
+        {
+          "name": "DELETE generated meme",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memoid</title>
+    <link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+    <main class="page-shell">
+        <section class="hero section">
+            <div class="hero-content">
+                <p id="api-status-badge" class="status-badge status-loading">Підключення до Web API...</p>
+                <h1>Memoid</h1>
+                <p class="hero-text">
+                    Вебзастосунок для створення мемів на основі шаблонів і власних зображень.
+                    Дані завантажуються з ASP.NET Core Web API, а редактор працює прямо в браузері через HTML5 Canvas.
+                </p>
+                <div class="hero-actions" aria-label="Посилання проєкту">
+                    <a class="button button-primary" href="#editor-section">Відкрити редактор</a>
+                    <a class="button button-secondary" href="/openapi/v1.json">OpenAPI JSON</a>
+                </div>
+            </div>
+            <div class="hero-panel" aria-label="Стан проєкту">
+                <div class="panel-line">
+                    <span>Frontend</span>
+                    <strong>HTML, CSS, JavaScript, Canvas</strong>
+                </div>
+                <div class="panel-line">
+                    <span>Backend</span>
+                    <strong>ASP.NET Core Web API</strong>
+                </div>
+                <div class="panel-line">
+                    <span>Зображення</span>
+                    <strong>wwwroot/uploads</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="api-status section" aria-live="polite">
+            <div>
+                <p class="eyebrow">Стан API</p>
+                <h2>Дані з backend</h2>
+            </div>
+            <p id="api-status-message" class="status-message status-loading">
+                Завантажуємо категорії, шаблони та галерею...
+            </p>
+        </section>
+
+        <section id="categories" class="section">
+            <div class="section-heading">
+                <p class="eyebrow">Довідник</p>
+                <h2>Категорії</h2>
+            </div>
+            <div id="categories-list" class="cards-grid" aria-live="polite">
+                <p class="loading-card">Завантажуємо категорії...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-heading section-heading-row">
+                <div>
+                    <p class="eyebrow">Шаблони</p>
+                    <h2>Шаблони мемів</h2>
+                </div>
+                <div class="filter-control">
+                    <label for="template-category-filter">Категорія</label>
+                    <select id="template-category-filter">
+                        <option value="">Усі категорії</option>
+                    </select>
+                </div>
+            </div>
+            <div id="templates-list" class="cards-grid" aria-live="polite">
+                <p class="loading-card">Завантажуємо шаблони...</p>
+            </div>
+        </section>
+
+        <section id="editor-section" class="section editor-section">
+            <div class="section-heading">
+                <p class="eyebrow">Canvas</p>
+                <h2>Редактор мема</h2>
+                <p class="section-note">
+                    Оберіть шаблон або завантажте власне зображення. Обробка зображення і тексту виконується
+                    у браузері через HTML5 Canvas. Завантаження зображень підключено через Web API.
+                </p>
+            </div>
+
+            <div class="editor-workspace">
+                <div class="canvas-panel">
+                    <div class="canvas-frame">
+                        <canvas id="meme-canvas" width="900" height="600" aria-label="Полотно редактора мема"></canvas>
+                        <p id="canvas-empty-state" class="canvas-empty-state">Оберіть шаблон або завантажте власне зображення.</p>
+                    </div>
+                    <div class="editor-actions">
+                        <button id="redraw-meme-button" class="button button-secondary" type="button">Перемалювати</button>
+                        <button id="download-meme-button" class="button button-secondary" type="button">Завантажити готовий мем</button>
+                        <button id="save-meme-button" class="button button-primary" type="button">Зберегти в галерею</button>
+                    </div>
+                </div>
+
+                <aside class="editor-controls" aria-label="Налаштування редактора">
+                    <div class="field">
+                        <label for="editor-template-select">Шаблон</label>
+                        <select id="editor-template-select">
+                            <option value="">Не вибрано</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="custom-image-input">Власне зображення</label>
+                        <input id="custom-image-input" type="file" accept="image/jpeg,image/png,image/webp">
+                    </div>
+
+                    <div class="field">
+                        <label for="meme-title-input">Назва мема</label>
+                        <input id="meme-title-input" type="text" placeholder="Мій мем" value="Мій мем">
+                    </div>
+
+                    <div class="field">
+                        <label for="top-text-input">Верхній текст</label>
+                        <input id="top-text-input" type="text" placeholder="Верхній текст">
+                    </div>
+
+                    <div class="field">
+                        <label for="bottom-text-input">Нижній текст</label>
+                        <input id="bottom-text-input" type="text" placeholder="Нижній текст">
+                    </div>
+
+                    <div class="controls-grid">
+                        <div class="field">
+                            <label for="font-family-select">Шрифт</label>
+                            <select id="font-family-select">
+                                <option>Arial</option>
+                                <option>Impact</option>
+                                <option>Verdana</option>
+                                <option>Georgia</option>
+                                <option>Comic Sans MS</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="font-size-input">Розмір</label>
+                            <input id="font-size-input" type="range" min="20" max="96" value="48">
+                            <span id="font-size-value" class="range-value">48 px</span>
+                        </div>
+                    </div>
+
+                    <div class="controls-grid">
+                        <div class="field">
+                            <label for="text-color-input">Колір тексту</label>
+                            <input id="text-color-input" type="color" value="#ffffff">
+                        </div>
+
+                        <div class="field">
+                            <label for="text-position-select">Позиція тексту</label>
+                            <select id="text-position-select">
+                                <option value="TopAndBottom">Зверху і знизу</option>
+                                <option value="Top">Тільки зверху</option>
+                                <option value="Center">По центру</option>
+                                <option value="Bottom">Тільки знизу</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="image-effect-select">Ефект</label>
+                        <select id="image-effect-select">
+                            <option value="None">Без ефекту</option>
+                            <option value="Grayscale">Чорно-білий</option>
+                            <option value="Contrast">Контраст</option>
+                            <option value="Red">Червоний фільтр</option>
+                            <option value="Blur">Легке розмиття</option>
+                            <option value="Shakal">Шакалізація</option>
+                        </select>
+                    </div>
+
+                    <div id="editor-status" class="editor-status status-message" aria-live="polite">
+                        Редактор готовий. Оберіть шаблон або завантажте фото.
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-heading section-heading-row">
+                <div>
+                    <p class="eyebrow">Галерея</p>
+                    <h2>Галерея створених мемів</h2>
+                </div>
+                <label class="toggle-control" for="favorites-only">
+                    <input id="favorites-only" type="checkbox">
+                    <span>Лише улюблені</span>
+                </label>
+            </div>
+            <div id="generated-memes-list" class="cards-grid" aria-live="polite">
+                <p class="loading-card">Завантажуємо галерею...</p>
+            </div>
+        </section>
+    </main>
+    <script src="js/app.js"></script>
+</body>
+</html>

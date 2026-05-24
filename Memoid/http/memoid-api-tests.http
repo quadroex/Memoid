@@ -1,0 +1,223 @@
+@baseUrl = https://localhost:7113
+@createdCategoryId = 5
+@createdTemplateId = 5
+@createdGeneratedMemeId = 1
+
+### Root page
+GET {{baseUrl}}/
+
+### OpenAPI JSON
+GET {{baseUrl}}/openapi/v1.json
+
+### Categories: get all active categories
+GET {{baseUrl}}/api/meme-categories
+
+### Categories: get all categories including inactive
+GET {{baseUrl}}/api/meme-categories?includeInactive=true
+
+### Categories: get by id
+GET {{baseUrl}}/api/meme-categories/1
+
+### Categories: create
+POST {{baseUrl}}/api/meme-categories
+Content-Type: application/json
+
+{
+  "name": "Тестова категорія",
+  "description": "Категорія для ручного тестування API"
+}
+
+### Categories: duplicate name negative test
+POST {{baseUrl}}/api/meme-categories
+Content-Type: application/json
+
+{
+  "name": "Тестова категорія",
+  "description": "Повторна категорія з тією самою назвою"
+}
+
+### Categories: empty name negative test
+POST {{baseUrl}}/api/meme-categories
+Content-Type: application/json
+
+{
+  "name": "   ",
+  "description": "Некоректна категорія"
+}
+
+### Categories: update created category
+PUT {{baseUrl}}/api/meme-categories/{{createdCategoryId}}
+Content-Type: application/json
+
+{
+  "name": "Оновлена тестова категорія",
+  "description": "Оновлений опис категорії",
+  "isActive": true
+}
+
+### Categories: delete or deactivate created category
+DELETE {{baseUrl}}/api/meme-categories/{{createdCategoryId}}
+
+### Templates: get all active templates
+GET {{baseUrl}}/api/meme-templates
+
+### Templates: get all templates including inactive
+GET {{baseUrl}}/api/meme-templates?includeInactive=true
+
+### Templates: get by category
+GET {{baseUrl}}/api/meme-templates?categoryId=1
+
+### Templates: get by id
+GET {{baseUrl}}/api/meme-templates/1
+
+### Templates: create
+POST {{baseUrl}}/api/meme-templates
+Content-Type: application/json
+
+{
+  "title": "Тестовий шаблон",
+  "imagePath": "/uploads/templates/test-template.png",
+  "memeCategoryId": 1
+}
+
+### Templates: invalid image path negative test
+POST {{baseUrl}}/api/meme-templates
+Content-Type: application/json
+
+{
+  "title": "Некоректний шаблон",
+  "imagePath": "/wrong-folder/test-template.png",
+  "memeCategoryId": 1
+}
+
+### Templates: non-existing category negative test
+POST {{baseUrl}}/api/meme-templates
+Content-Type: application/json
+
+{
+  "title": "Шаблон без категорії",
+  "imagePath": "/uploads/templates/no-category.png",
+  "memeCategoryId": 999999
+}
+
+### Templates: update created template
+PUT {{baseUrl}}/api/meme-templates/{{createdTemplateId}}
+Content-Type: application/json
+
+{
+  "title": "Оновлений тестовий шаблон",
+  "imagePath": "/uploads/templates/test-template-updated.png",
+  "memeCategoryId": 1,
+  "isActive": true
+}
+
+### Templates: delete or deactivate created template
+DELETE {{baseUrl}}/api/meme-templates/{{createdTemplateId}}
+
+### Generated memes: get all
+GET {{baseUrl}}/api/generated-memes
+
+### Generated memes: get favorites only
+GET {{baseUrl}}/api/generated-memes?favoritesOnly=true
+
+### Generated memes: get by template
+GET {{baseUrl}}/api/generated-memes?templateId=1
+
+### Generated memes: get by id
+GET {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}
+
+### Generated memes: create metadata record from template
+POST {{baseUrl}}/api/generated-memes
+Content-Type: application/json
+
+{
+  "title": "Тестовий створений мем",
+  "imagePath": "/uploads/generated/test-generated-meme.png",
+  "sourceType": "Template",
+  "memeTemplateId": 1,
+  "originalImagePath": null,
+  "topText": "Коли лабораторна",
+  "bottomText": "нарешті запускається",
+  "textPosition": "TopAndBottom",
+  "fontFamily": "Arial",
+  "fontSize": 48,
+  "textColor": "#ffffff",
+  "textBackgroundColor": null,
+  "appliedEffect": "None"
+}
+
+### Generated memes: invalid source type negative test
+POST {{baseUrl}}/api/generated-memes
+Content-Type: application/json
+
+{
+  "title": "Некоректний тип джерела",
+  "imagePath": "/uploads/generated/invalid-source.png",
+  "sourceType": "Unknown",
+  "memeTemplateId": 1,
+  "originalImagePath": null,
+  "topText": "Test",
+  "bottomText": "Test",
+  "textPosition": "TopAndBottom",
+  "fontFamily": "Arial",
+  "fontSize": 48,
+  "textColor": "#ffffff",
+  "textBackgroundColor": null,
+  "appliedEffect": "None"
+}
+
+### Generated memes: invalid generated image path negative test
+POST {{baseUrl}}/api/generated-memes
+Content-Type: application/json
+
+{
+  "title": "Некоректний шлях",
+  "imagePath": "/wrong-folder/generated.png",
+  "sourceType": "Template",
+  "memeTemplateId": 1,
+  "originalImagePath": null,
+  "topText": "Test",
+  "bottomText": "Test",
+  "textPosition": "TopAndBottom",
+  "fontFamily": "Arial",
+  "fontSize": 48,
+  "textColor": "#ffffff",
+  "textBackgroundColor": null,
+  "appliedEffect": "None"
+}
+
+### Generated memes: create metadata record from custom image
+POST {{baseUrl}}/api/generated-memes
+Content-Type: application/json
+
+{
+  "title": "Тестовий мем з власного зображення",
+  "imagePath": "/uploads/generated/custom-generated-meme.png",
+  "sourceType": "Custom",
+  "memeTemplateId": null,
+  "originalImagePath": "/uploads/custom/source-image.png",
+  "topText": "Власне фото",
+  "bottomText": "майбутній мем",
+  "textPosition": "TopAndBottom",
+  "fontFamily": "Arial",
+  "fontSize": 48,
+  "textColor": "#ffffff",
+  "textBackgroundColor": null,
+  "appliedEffect": "None"
+}
+
+### Generated memes: update title and favorite status
+PUT {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}
+Content-Type: application/json
+
+{
+  "title": "Оновлена назва тестового мема",
+  "isFavorite": true
+}
+
+### Generated memes: toggle favorite
+PATCH {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}/favorite
+
+### Generated memes: delete metadata record
+DELETE {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}
+

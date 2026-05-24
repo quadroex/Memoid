@@ -1,0 +1,6 @@
+@Memoid_HostAddress = http://localhost:5036
+
+GET {{Memoid_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

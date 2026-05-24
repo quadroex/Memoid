@@ -1,0 +1,988 @@
+"use strict";
+
+const API_BASE = "/api";
+const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const CANVAS_MAX_WIDTH = 900;
+const CANVAS_MAX_HEIGHT = 600;
+
+let cachedCategories = [];
+let cachedTemplates = [];
+let currentImage = null;
+let currentSourceType = null;
+let currentTemplateId = null;
+let currentOriginalImagePath = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("Memoid frontend initialized");
+
+    bindDataControls();
+    bindEditorControls();
+    initializePage();
+});
+
+function bindDataControls() {
+    const categoryFilter = document.getElementById("template-category-filter");
+    const favoritesToggle = document.getElementById("favorites-only");
+
+    if (categoryFilter) {
+        categoryFilter.addEventListener("change", () => {
+            const categoryId = categoryFilter.value || null;
+            loadTemplates(categoryId);
+        });
+    }
+
+    if (favoritesToggle) {
+        favoritesToggle.addEventListener("change", () => {
+            loadGeneratedMemes(favoritesToggle.checked);
+        });
+    }
+}
+
+function bindEditorControls() {
+    const templateSelect = document.getElementById("editor-template-select");
+    const customImageInput = document.getElementById("custom-image-input");
+    const redrawButton = document.getElementById("redraw-meme-button");
+    const downloadButton = document.getElementById("download-meme-button");
+    const saveButton = document.getElementById("save-meme-button");
+    const fontSizeInput = document.getElementById("font-size-input");
+
+    if (templateSelect) {
+        templateSelect.addEventListener("change", handleTemplateSelection);
+    }
+
+    if (customImageInput) {
+        customImageInput.addEventListener("change", handleCustomImageSelection);
+    }
+
+    if (redrawButton) {
+        redrawButton.addEventListener("click", renderCanvas);
+    }
+
+    if (downloadButton) {
+        downloadButton.addEventListener("click", downloadMeme);
+    }
+
+    if (saveButton) {
+        saveButton.addEventListener("click", saveMemeToGallery);
+    }
+
+    if (fontSizeInput) {
+        fontSizeInput.addEventListener("input", () => {
+            updateFontSizeLabel();
+            renderCanvas();
+        });
+    }
+
+    [
+        "top-text-input",
+        "bottom-text-input",
+        "font-family-select",
+        "text-color-input",
+        "text-position-select",
+        "image-effect-select"
+    ].forEach((id) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener("input", renderCanvas);
+            element.addEventListener("change", renderCanvas);
+        }
+    });
+
+    updateFontSizeLabel();
+    clearCanvas();
+}
+
+async function initializePage() {
+    setApiStatus("loading", "Завантажуємо дані з Web API...");
+
+    const categories = await loadCategories();
+    const templates = await loadTemplates();
+    const memes = await loadGeneratedMemes();
+
+    const successfulLoads = [categories, templates, memes].filter((result) => result !== null).length;
+
+    if (successfulLoads === 3) {
+        setApiStatus("success", "Frontend успішно отримав дані з API.");
+    } else if (successfulLoads > 0) {
+        setApiStatus("error", "Частину даних завантажено, але деякі API-запити завершилися помилкою.");
+    } else {
+        setApiStatus("error", "Не вдалося завантажити дані з API. Перевірте, чи запущений backend.");
+    }
+}
+
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+        headers: {
+            "Accept": "application/json",
+            ...(options.headers || {})
+        },
+        ...options
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status} для ${url}`);
+    }
+
+    return response.json();
+}
+
+async function loadCategories() {
+    const container = document.getElementById("categories-list");
+    setLoading(container, "Завантажуємо категорії...");
+
+    try {
+        const categories = await fetchJson(`${API_BASE}/meme-categories`);
+        cachedCategories = Array.isArray(categories) ? categories : [];
+        renderCategories(cachedCategories);
+        renderTemplateCategoryFilter(cachedCategories);
+        return cachedCategories;
+    } catch (error) {
+        console.error("Failed to load categories", error);
+        renderError(container, "Не вдалося завантажити категорії.");
+        renderTemplateCategoryFilter([]);
+        return null;
+    }
+}
+
+async function loadTemplates(categoryId = null) {
+    const container = document.getElementById("templates-list");
+    setLoading(container, "Завантажуємо шаблони...");
+
+    const query = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
+
+    try {
+        const templates = await fetchJson(`${API_BASE}/meme-templates${query}`);
+        const safeTemplates = Array.isArray(templates) ? templates : [];
+        renderTemplates(safeTemplates);
+
+        if (!categoryId) {
+            cachedTemplates = safeTemplates;
+            renderEditorTemplateSelect(cachedTemplates);
+        }
+
+        return safeTemplates;
+    } catch (error) {
+        console.error("Failed to load meme templates", error);
+        renderError(container, "Не вдалося завантажити шаблони мемів.");
+        return null;
+    }
+}
+
+async function loadGeneratedMemes(favoritesOnly = false) {
+    const container = document.getElementById("generated-memes-list");
+    setLoading(container, "Завантажуємо галерею...");
+
+    const query = favoritesOnly ? "?favoritesOnly=true" : "";
+
+    try {
+        const memes = await fetchJson(`${API_BASE}/generated-memes${query}`);
+        renderGeneratedMemes(Array.isArray(memes) ? memes : []);
+        return memes;
+    } catch (error) {
+        console.error("Failed to load generated memes", error);
+        renderError(container, "Не вдалося завантажити галерею створених мемів.");
+        return null;
+    }
+}
+
+function renderCategories(categories) {
+    const container = document.getElementById("categories-list");
+    clearElement(container);
+
+    if (!container) {
+        return;
+    }
+
+    if (!Array.isArray(categories) || categories.length === 0) {
+        container.append(createEmptyState("Категорій поки що немає."));
+        return;
+    }
+
+    categories.forEach((category) => {
+        const card = createCard();
+        card.append(
+            createBadge(category.isActive ? "Активна" : "Неактивна", category.isActive ? "active" : "inactive"),
+            createTextElement("h3", category.name || "Без назви"),
+            createTextElement("p", category.description || "Опис категорії ще не додано."),
+            createMeta([
+                formatCount(category.templatesCount, "шаблон", "шаблони", "шаблонів")
+            ])
+        );
+        container.append(card);
+    });
+}
+
+function renderTemplateCategoryFilter(categories) {
+    const filter = document.getElementById("template-category-filter");
+
+    if (!filter) {
+        return;
+    }
+
+    const currentValue = filter.value;
+    clearElement(filter);
+
+    const allOption = document.createElement("option");
+    allOption.value = "";
+    allOption.textContent = "Усі категорії";
+    filter.append(allOption);
+
+    if (Array.isArray(categories)) {
+        categories.forEach((category) => {
+            const option = document.createElement("option");
+            option.value = String(category.id);
+            option.textContent = category.name || `Категорія #${category.id}`;
+            filter.append(option);
+        });
+    }
+
+    filter.value = Array.from(filter.options).some((option) => option.value === currentValue)
+        ? currentValue
+        : "";
+}
+
+function renderEditorTemplateSelect(templates) {
+    const select = document.getElementById("editor-template-select");
+
+    if (!select) {
+        return;
+    }
+
+    const currentValue = select.value;
+    clearElement(select);
+
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "Не вибрано";
+    select.append(emptyOption);
+
+    templates.forEach((template) => {
+        const option = document.createElement("option");
+        option.value = String(template.id);
+        option.textContent = template.categoryName
+            ? `${template.title} (${template.categoryName})`
+            : template.title;
+        select.append(option);
+    });
+
+    select.value = Array.from(select.options).some((option) => option.value === currentValue)
+        ? currentValue
+        : "";
+}
+
+function renderTemplates(templates) {
+    const container = document.getElementById("templates-list");
+    clearElement(container);
+
+    if (!container) {
+        return;
+    }
+
+    if (!Array.isArray(templates) || templates.length === 0) {
+        container.append(createEmptyState("Для вибраної категорії шаблонів поки що немає."));
+        return;
+    }
+
+    templates.forEach((template) => {
+        const card = createCard();
+        card.append(
+            createImageTile(template.imagePath, "Шаблон мема"),
+            createBadge(template.isActive ? "Активний" : "Неактивний", template.isActive ? "active" : "inactive"),
+            createTextElement("h3", template.title || "Без назви"),
+            createTextElement("p", `Категорія: ${template.categoryName || "Без категорії"}`),
+            createTextElement("p", template.imagePath || "Шлях до зображення не вказано.", "path-text"),
+            createMeta([
+                formatCount(template.generatedMemesCount, "створений мем", "створені меми", "створених мемів")
+            ])
+        );
+        container.append(card);
+    });
+}
+
+function renderGeneratedMemes(memes) {
+    const container = document.getElementById("generated-memes-list");
+    clearElement(container);
+
+    if (!container) {
+        return;
+    }
+
+    if (!Array.isArray(memes) || memes.length === 0) {
+        container.append(createEmptyState("Поки що створених мемів немає. Пізніше тут з’явиться галерея."));
+        return;
+    }
+
+    memes.forEach((meme) => {
+        const card = createCard();
+        card.append(
+            createImageTile(meme.imagePath, "Створений мем"),
+            createBadge(meme.isFavorite ? "Улюблений" : "Звичайний", meme.isFavorite ? "favorite" : ""),
+            createTextElement("h3", meme.title || "Без назви"),
+            createTextElement("p", `Джерело: ${formatSourceType(meme.sourceType)}`),
+            createTextElement("p", `Шаблон: ${meme.templateTitle || "не використано"}`),
+            createMeta([
+                `Створено: ${formatDate(meme.createdAt)}`
+            ])
+        );
+        container.append(card);
+    });
+}
+
+async function handleTemplateSelection(event) {
+    const templateId = Number(event.target.value);
+
+    if (!templateId) {
+        resetEditorSource();
+        clearCanvas();
+        setEditorStatus("Оберіть шаблон або завантажте власне зображення.", "info");
+        return;
+    }
+
+    const template = cachedTemplates.find((item) => item.id === templateId);
+    if (!template) {
+        setEditorStatus("Шаблон не знайдено в завантаженому списку.", "error");
+        return;
+    }
+
+    try {
+        const image = await loadImage(template.imagePath);
+        currentImage = image;
+        currentSourceType = "Template";
+        currentTemplateId = template.id;
+        currentOriginalImagePath = null;
+        clearCustomFileInput();
+        setEditorStatus("Шаблон завантажено в редактор.", "success");
+        renderCanvas();
+    } catch (error) {
+        console.error("Failed to load template image", error);
+        resetEditorSource();
+        clearCanvas();
+        setEditorStatus("Файл шаблона не знайдено. Завантажте реальне зображення шаблона або використайте власне фото.", "error");
+    }
+}
+
+async function handleCustomImageSelection(event) {
+    const file = event.target.files && event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+    const validationError = validateClientImage(file);
+    if (validationError) {
+        setEditorStatus(validationError, "error");
+        event.target.value = "";
+        return;
+    }
+
+    try {
+        setEditorStatus("Завантажуємо власне зображення...", "info");
+        const uploaded = await uploadFile(`${API_BASE}/uploads/custom`, file);
+        const image = await loadImage(uploaded.relativePath);
+
+        currentImage = image;
+        currentSourceType = "Custom";
+        currentTemplateId = null;
+        currentOriginalImagePath = uploaded.relativePath;
+
+        const templateSelect = document.getElementById("editor-template-select");
+        if (templateSelect) {
+            templateSelect.value = "";
+        }
+
+        setEditorStatus("Власне зображення завантажено в редактор.", "success");
+        renderCanvas();
+    } catch (error) {
+        console.error("Failed to upload custom image", error);
+        setEditorStatus("Не вдалося завантажити зображення.", "error");
+    }
+}
+
+function validateClientImage(file) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        return "Підтримуються лише JPG, PNG або WEBP.";
+    }
+
+    if (file.size > MAX_UPLOAD_SIZE) {
+        return "Файл завеликий. Максимальний розмір — 5 МБ.";
+    }
+
+    return null;
+}
+
+async function uploadFile(endpoint, fileOrBlob, fileName = "memoid-image.png") {
+    const formData = new FormData();
+    formData.append("file", fileOrBlob, fileOrBlob.name || fileName);
+
+    return fetchJson(endpoint, {
+        method: "POST",
+        body: formData,
+        headers: {}
+    });
+}
+
+async function createGeneratedMeme(payload) {
+    return fetchJson(`${API_BASE}/generated-memes`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+function renderCanvas() {
+    const canvas = document.getElementById("meme-canvas");
+    const emptyState = document.getElementById("canvas-empty-state");
+
+    if (!canvas) {
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+
+    if (!currentImage) {
+        clearCanvas();
+        return;
+    }
+
+    const { width, height } = getCanvasSize(currentImage);
+    canvas.width = width;
+    canvas.height = height;
+
+    if (emptyState) {
+        emptyState.classList.add("is-hidden");
+    }
+
+    drawBaseImage(ctx, canvas, currentImage, getEditorValue("image-effect-select", "None"));
+    drawMemeText(ctx, canvas);
+}
+
+function clearCanvas() {
+    const canvas = document.getElementById("meme-canvas");
+    const emptyState = document.getElementById("canvas-empty-state");
+
+    if (!canvas) {
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.width = CANVAS_MAX_WIDTH;
+    canvas.height = CANVAS_MAX_HEIGHT;
+
+    if (emptyState) {
+        emptyState.classList.remove("is-hidden");
+    }
+}
+
+function getCanvasSize(image) {
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    const scale = Math.min(CANVAS_MAX_WIDTH / sourceWidth, CANVAS_MAX_HEIGHT / sourceHeight, 1);
+
+    return {
+        width: Math.max(1, Math.round(sourceWidth * scale)),
+        height: Math.max(1, Math.round(sourceHeight * scale))
+    };
+}
+
+function drawBaseImage(ctx, canvas, image, effect) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.filter = effect === "Blur" ? "blur(2px)" : "none";
+
+    if (effect === "Shakal") {
+        drawShakalizedImage(ctx, canvas, image);
+    } else {
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    }
+
+    ctx.filter = "none";
+
+    if (effect === "Grayscale" || effect === "Contrast" || effect === "Red") {
+        applyPixelEffect(ctx, canvas, effect);
+    }
+}
+
+function drawShakalizedImage(ctx, canvas, image) {
+    const smallCanvas = document.createElement("canvas");
+    const smallCtx = smallCanvas.getContext("2d");
+    smallCanvas.width = Math.max(24, Math.round(canvas.width / 8));
+    smallCanvas.height = Math.max(24, Math.round(canvas.height / 8));
+
+    smallCtx.imageSmoothingEnabled = false;
+    smallCtx.drawImage(image, 0, 0, smallCanvas.width, smallCanvas.height);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(smallCanvas, 0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+
+    applyNoise(ctx, canvas, 26);
+}
+
+function applyPixelEffect(ctx, canvas, effect) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        let red = data[i];
+        let green = data[i + 1];
+        let blue = data[i + 2];
+
+        if (effect === "Grayscale") {
+            const gray = Math.round(red * 0.299 + green * 0.587 + blue * 0.114);
+            data[i] = gray;
+            data[i + 1] = gray;
+            data[i + 2] = gray;
+        }
+
+        if (effect === "Contrast") {
+            const factor = 1.35;
+            data[i] = clampColor((red - 128) * factor + 128);
+            data[i + 1] = clampColor((green - 128) * factor + 128);
+            data[i + 2] = clampColor((blue - 128) * factor + 128);
+        }
+
+        if (effect === "Red") {
+            data[i] = clampColor(red + 55);
+            data[i + 1] = clampColor(green * 0.72);
+            data[i + 2] = clampColor(blue * 0.72);
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+}
+
+function applyNoise(ctx, canvas, amount) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const noise = Math.floor((Math.random() - 0.5) * amount);
+        data[i] = clampColor(data[i] + noise);
+        data[i + 1] = clampColor(data[i + 1] + noise);
+        data[i + 2] = clampColor(data[i + 2] + noise);
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+}
+
+function drawMemeText(ctx, canvas) {
+    const topText = getEditorValue("top-text-input", "");
+    const bottomText = getEditorValue("bottom-text-input", "");
+    const position = getEditorValue("text-position-select", "TopAndBottom");
+    const fontFamily = getEditorValue("font-family-select", "Arial");
+    const fontSize = Number(getEditorValue("font-size-input", "48"));
+    const textColor = getEditorValue("text-color-input", "#ffffff");
+    const lineHeight = Math.round(fontSize * 1.16);
+    const padding = Math.max(16, Math.round(fontSize * 0.55));
+    const maxWidth = canvas.width - padding * 2;
+
+    ctx.font = `900 ${fontSize}px ${fontFamily}`;
+    ctx.textAlign = "center";
+    ctx.lineJoin = "round";
+    ctx.fillStyle = textColor;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = Math.max(3, Math.round(fontSize / 12));
+
+    if (position === "TopAndBottom") {
+        drawWrappedText(ctx, topText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
+        drawWrappedText(ctx, bottomText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
+    } else if (position === "Top") {
+        drawWrappedText(ctx, topText || bottomText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
+    } else if (position === "Center") {
+        drawWrappedText(ctx, [topText, bottomText].filter(Boolean).join(" "), canvas.width / 2, canvas.height / 2, maxWidth, lineHeight, "center");
+    } else if (position === "Bottom") {
+        drawWrappedText(ctx, bottomText || topText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
+    }
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, alignMode) {
+    const lines = wrapText(ctx, text, maxWidth).slice(0, 6);
+    if (lines.length === 0) {
+        return;
+    }
+
+    let startY = y;
+
+    if (alignMode === "center") {
+        startY = y - ((lines.length - 1) * lineHeight) / 2;
+    }
+
+    if (alignMode === "bottom") {
+        startY = y - (lines.length - 1) * lineHeight;
+    }
+
+    lines.forEach((line, index) => {
+        const lineY = startY + index * lineHeight;
+        ctx.strokeText(line, x, lineY);
+        ctx.fillText(line, x, lineY);
+    });
+}
+
+function wrapText(ctx, text, maxWidth) {
+    const cleanText = (text || "").trim();
+    if (!cleanText) {
+        return [];
+    }
+
+    const words = cleanText.split(/\s+/);
+    const lines = [];
+    let line = "";
+
+    words.forEach((word) => {
+        const testLine = line ? `${line} ${word}` : word;
+
+        if (ctx.measureText(testLine).width <= maxWidth) {
+            line = testLine;
+            return;
+        }
+
+        if (line) {
+            lines.push(line);
+        }
+
+        line = word;
+
+        while (ctx.measureText(line).width > maxWidth && line.length > 1) {
+            let splitIndex = line.length - 1;
+            while (splitIndex > 1 && ctx.measureText(line.slice(0, splitIndex)).width > maxWidth) {
+                splitIndex -= 1;
+            }
+            lines.push(line.slice(0, splitIndex));
+            line = line.slice(splitIndex);
+        }
+    });
+
+    if (line) {
+        lines.push(line);
+    }
+
+    return lines;
+}
+
+function downloadMeme() {
+    if (!currentImage) {
+        setEditorStatus("Спочатку оберіть або завантажте зображення.", "error");
+        return;
+    }
+
+    renderCanvas();
+
+    const canvas = document.getElementById("meme-canvas");
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = "memoid-meme.png";
+    link.click();
+}
+
+async function saveMemeToGallery() {
+    if (!currentImage) {
+        setEditorStatus("Спочатку оберіть або завантажте зображення.", "error");
+        return;
+    }
+
+    const saveButton = document.getElementById("save-meme-button");
+
+    try {
+        if (saveButton) {
+            saveButton.disabled = true;
+        }
+
+        setEditorStatus("Зберігаємо мем у галерею...", "info");
+        renderCanvas();
+
+        const canvas = document.getElementById("meme-canvas");
+        const blob = await canvasToBlob(canvas);
+        const uploaded = await uploadFile(`${API_BASE}/uploads/generated`, blob, "memoid-meme.png");
+        const payload = buildGeneratedMemePayload(uploaded.relativePath);
+
+        await createGeneratedMeme(payload);
+        setEditorStatus("Мем збережено в галерею.", "success");
+        await loadGeneratedMemes(getFavoritesOnly());
+    } catch (error) {
+        console.error("Failed to save generated meme", error);
+        setEditorStatus("Не вдалося зберегти мем.", "error");
+    } finally {
+        if (saveButton) {
+            saveButton.disabled = false;
+        }
+    }
+}
+
+function buildGeneratedMemePayload(imagePath) {
+    const sourceType = currentSourceType === "Template" ? "Template" : "Custom";
+
+    return {
+        title: getEditorValue("meme-title-input", "").trim() || "Без назви",
+        imagePath,
+        sourceType,
+        memeTemplateId: sourceType === "Template" ? currentTemplateId : null,
+        originalImagePath: sourceType === "Custom" ? currentOriginalImagePath : null,
+        topText: getEditorValue("top-text-input", "").trim() || null,
+        bottomText: getEditorValue("bottom-text-input", "").trim() || null,
+        textPosition: getEditorValue("text-position-select", "TopAndBottom"),
+        fontFamily: getEditorValue("font-family-select", "Arial"),
+        fontSize: Number(getEditorValue("font-size-input", "48")),
+        textColor: getEditorValue("text-color-input", "#ffffff"),
+        textBackgroundColor: null,
+        appliedEffect: getEditorValue("image-effect-select", "None")
+    };
+}
+
+function canvasToBlob(canvas) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error("Canvas could not be converted to Blob."));
+            }
+        }, "image/png");
+    });
+}
+
+function loadImage(src) {
+    return new Promise((resolve, reject) => {
+        if (!src) {
+            reject(new Error("Image path is empty."));
+            return;
+        }
+
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+        image.src = src;
+    });
+}
+
+function setApiStatus(type, message) {
+    const badge = document.getElementById("api-status-badge");
+    const statusMessage = document.getElementById("api-status-message");
+    const className = `status-${type}`;
+
+    if (badge) {
+        badge.classList.remove("status-loading", "status-success", "status-error");
+        badge.classList.add(className);
+        badge.textContent = type === "success"
+            ? "Web API підключено"
+            : type === "error"
+                ? "Є проблема з API"
+                : "Підключення до Web API...";
+    }
+
+    if (statusMessage) {
+        statusMessage.classList.remove("status-loading", "status-success", "status-error");
+        statusMessage.classList.add(className);
+        statusMessage.textContent = message;
+    }
+}
+
+function setEditorStatus(message, type = "info") {
+    const status = document.getElementById("editor-status");
+
+    if (!status) {
+        return;
+    }
+
+    status.classList.remove("success", "error");
+    if (type === "success" || type === "error") {
+        status.classList.add(type);
+    }
+    status.textContent = message;
+}
+
+function createCard() {
+    const card = document.createElement("article");
+    card.className = "data-card";
+    return card;
+}
+
+function createTextElement(tagName, text, className = "") {
+    const element = document.createElement(tagName);
+    element.textContent = text;
+
+    if (className) {
+        element.className = className;
+    }
+
+    return element;
+}
+
+function createBadge(text, modifier = "") {
+    const badge = document.createElement("span");
+    badge.className = modifier ? `card-badge ${modifier}` : "card-badge";
+    badge.textContent = text;
+    return badge;
+}
+
+function createMeta(items) {
+    const meta = document.createElement("div");
+    meta.className = "data-card-meta";
+
+    items.forEach((item) => {
+        meta.append(createBadge(item));
+    });
+
+    return meta;
+}
+
+function createImageTile(src, placeholderText) {
+    const tile = document.createElement("div");
+    tile.className = "image-tile";
+
+    const placeholder = document.createElement("span");
+    placeholder.className = "image-placeholder-text";
+    placeholder.textContent = placeholderText;
+
+    if (!src) {
+        tile.append(placeholder);
+        return tile;
+    }
+
+    const image = document.createElement("img");
+    image.alt = placeholderText;
+    image.loading = "lazy";
+    image.src = src;
+    image.onerror = () => {
+        image.remove();
+        if (!tile.contains(placeholder)) {
+            tile.append(placeholder);
+        }
+    };
+
+    tile.append(image);
+    return tile;
+}
+
+function createEmptyState(message) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = message;
+    return empty;
+}
+
+function setLoading(container, message) {
+    clearElement(container);
+
+    if (!container) {
+        return;
+    }
+
+    const loading = document.createElement("p");
+    loading.className = "loading-card";
+    loading.textContent = message;
+    container.append(loading);
+}
+
+function renderError(container, message) {
+    clearElement(container);
+
+    if (!container) {
+        return;
+    }
+
+    const error = createEmptyState(message);
+    error.classList.add("error");
+    container.append(error);
+}
+
+function clearElement(element) {
+    if (!element) {
+        return;
+    }
+
+    while (element.firstChild) {
+        element.removeChild(element.firstChild);
+    }
+}
+
+function resetEditorSource() {
+    currentImage = null;
+    currentSourceType = null;
+    currentTemplateId = null;
+    currentOriginalImagePath = null;
+}
+
+function clearCustomFileInput() {
+    const input = document.getElementById("custom-image-input");
+    if (input) {
+        input.value = "";
+    }
+}
+
+function getEditorValue(id, fallback) {
+    const element = document.getElementById(id);
+    return element ? element.value : fallback;
+}
+
+function getFavoritesOnly() {
+    const toggle = document.getElementById("favorites-only");
+    return Boolean(toggle && toggle.checked);
+}
+
+function updateFontSizeLabel() {
+    const input = document.getElementById("font-size-input");
+    const value = document.getElementById("font-size-value");
+
+    if (input && value) {
+        value.textContent = `${input.value} px`;
+    }
+}
+
+function clampColor(value) {
+    return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function formatSourceType(sourceType) {
+    if (sourceType === "Template") {
+        return "шаблон";
+    }
+
+    if (sourceType === "Custom") {
+        return "власне зображення";
+    }
+
+    return sourceType || "невідомо";
+}
+
+function formatDate(value) {
+    if (!value) {
+        return "невідомо";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "невідомо";
+    }
+
+    return new Intl.DateTimeFormat("uk-UA", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    }).format(date);
+}
+
+function formatCount(value, one, few, many) {
+    const count = Number(value) || 0;
+    const abs = Math.abs(count);
+    const lastTwo = abs % 100;
+    const last = abs % 10;
+    let word = many;
+
+    if (lastTwo < 11 || lastTwo > 14) {
+        if (last === 1) {
+            word = one;
+        } else if (last >= 2 && last <= 4) {
+            word = few;
+        }
+    }
+
+    return `${count} ${word}`;
+}

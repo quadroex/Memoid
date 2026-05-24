@@ -1,0 +1,49 @@
+@baseUrl = https://localhost:7113
+
+# Before sending these requests, replace ./sample.png with a real local image path.
+# Supported formats: JPG, JPEG, PNG, WEBP. Maximum file size: 5 MB.
+
+### Upload template image
+POST {{baseUrl}}/api/uploads/templates
+Content-Type: multipart/form-data; boundary=----MemoidBoundary
+
+------MemoidBoundary
+Content-Disposition: form-data; name="file"; filename="sample.png"
+Content-Type: image/png
+
+< ./sample.png
+------MemoidBoundary--
+
+### Upload custom source image
+POST {{baseUrl}}/api/uploads/custom
+Content-Type: multipart/form-data; boundary=----MemoidBoundary
+
+------MemoidBoundary
+Content-Disposition: form-data; name="file"; filename="sample.png"
+Content-Type: image/png
+
+< ./sample.png
+------MemoidBoundary--
+
+### Upload generated meme image
+POST {{baseUrl}}/api/uploads/generated
+Content-Type: multipart/form-data; boundary=----MemoidBoundary
+
+------MemoidBoundary
+Content-Disposition: form-data; name="file"; filename="sample.png"
+Content-Type: image/png
+
+< ./sample.png
+------MemoidBoundary--
+
+### Upload invalid content type negative test
+POST {{baseUrl}}/api/uploads/custom
+Content-Type: multipart/form-data; boundary=----MemoidBoundary
+
+------MemoidBoundary
+Content-Disposition: form-data; name="file"; filename="sample.txt"
+Content-Type: text/plain
+
+< ./sample.txt
+------MemoidBoundary--
+
