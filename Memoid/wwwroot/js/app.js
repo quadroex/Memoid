@@ -8,6 +8,8 @@ const CANVAS_MAX_HEIGHT = 600;
 
 let cachedCategories = [];
 let cachedTemplates = [];
+let cachedGeneratedMemes = [];
+let currentPreviewMeme = null;
 let currentImage = null;
 let currentSourceType = null;
 let currentTemplateId = null;
@@ -18,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     bindDataControls();
     bindEditorControls();
+    bindGalleryModalControls();
     initializePage();
 });
 
@@ -37,6 +40,47 @@ function bindDataControls() {
             loadGeneratedMemes(favoritesToggle.checked);
         });
     }
+}
+
+function bindGalleryModalControls() {
+    const modal = document.getElementById("meme-preview-modal");
+    const closeButton = document.getElementById("meme-preview-close");
+    const downloadButton = document.getElementById("meme-preview-download");
+    const favoriteButton = document.getElementById("meme-preview-favorite");
+
+    if (closeButton) {
+        closeButton.addEventListener("click", closeMemePreview);
+    }
+
+    if (modal) {
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal || event.target.dataset.modalClose === "true") {
+                closeMemePreview();
+            }
+        });
+    }
+
+    if (downloadButton) {
+        downloadButton.addEventListener("click", () => {
+            if (currentPreviewMeme) {
+                downloadGeneratedMeme(currentPreviewMeme);
+            }
+        });
+    }
+
+    if (favoriteButton) {
+        favoriteButton.addEventListener("click", async () => {
+            if (currentPreviewMeme) {
+                await toggleGeneratedMemeFavorite(currentPreviewMeme.id, favoriteButton);
+            }
+        });
+    }
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeMemePreview();
+        }
+    });
 }
 
 function bindEditorControls() {
@@ -60,7 +104,7 @@ function bindEditorControls() {
     }
 
     if (downloadButton) {
-        downloadButton.addEventListener("click", downloadMeme);
+        downloadButton.addEventListener("click", downloadCanvasMeme);
     }
 
     if (saveButton) {
@@ -128,6 +172,21 @@ async function fetchJson(url, options = {}) {
     return response.json();
 }
 
+async function fetchNoContent(url, options = {}) {
+    const response = await fetch(url, {
+        headers: {
+            "Accept": "application/json",
+            ...(options.headers || {})
+        },
+        ...options
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status} для ${url}`);
+    }
+}
+
 async function loadCategories() {
     const container = document.getElementById("categories-list");
     setLoading(container, "Завантажуємо категорії...");
@@ -173,16 +232,20 @@ async function loadTemplates(categoryId = null) {
 async function loadGeneratedMemes(favoritesOnly = false) {
     const container = document.getElementById("generated-memes-list");
     setLoading(container, "Завантажуємо галерею...");
+    setGalleryStatus("loading", "Завантажуємо галерею...");
 
     const query = favoritesOnly ? "?favoritesOnly=true" : "";
 
     try {
         const memes = await fetchJson(`${API_BASE}/generated-memes${query}`);
-        renderGeneratedMemes(Array.isArray(memes) ? memes : []);
+        cachedGeneratedMemes = Array.isArray(memes) ? memes : [];
+        renderGeneratedMemes(cachedGeneratedMemes);
+        setGalleryStatus("info", favoritesOnly ? "Показано тільки улюблені меми." : "Галерею оновлено.");
         return memes;
     } catch (error) {
         console.error("Failed to load generated memes", error);
         renderError(container, "Не вдалося завантажити галерею створених мемів.");
+        setGalleryStatus("error", "Не вдалося завантажити галерею.");
         return null;
     }
 }
@@ -310,24 +373,74 @@ function renderGeneratedMemes(memes) {
     }
 
     if (!Array.isArray(memes) || memes.length === 0) {
-        container.append(createEmptyState("Поки що створених мемів немає. Пізніше тут з’явиться галерея."));
+        const message = getFavoritesOnly()
+            ? "Улюблених мемів поки немає."
+            : "Поки що створених мемів немає. Створіть перший мем у редакторі.";
+        container.append(createEmptyState(message));
+        setGalleryStatus("info", message);
         return;
     }
 
     memes.forEach((meme) => {
         const card = createCard();
+        card.classList.add("generated-card");
         card.append(
-            createImageTile(meme.imagePath, "Створений мем"),
+            createImageTile(meme.imagePath, "Зображення не знайдено", meme.title || "Створений мем"),
             createBadge(meme.isFavorite ? "Улюблений" : "Звичайний", meme.isFavorite ? "favorite" : ""),
             createTextElement("h3", meme.title || "Без назви"),
             createTextElement("p", `Джерело: ${formatSourceType(meme.sourceType)}`),
             createTextElement("p", `Шаблон: ${meme.templateTitle || "не використано"}`),
+            createOptionalText("Верхній текст", meme.topText),
+            createOptionalText("Нижній текст", meme.bottomText),
+            createOptionalText("Ефект", formatEffectName(meme.appliedEffect)),
             createMeta([
-                `Створено: ${formatDate(meme.createdAt)}`
-            ])
+                `Створено: ${formatDate(meme.createdAt)}`,
+                meme.isFavorite ? "Улюблений" : "Не в улюблених"
+            ]),
+            createGeneratedMemeActions(meme)
         );
         container.append(card);
     });
+}
+
+function createGeneratedMemeActions(meme) {
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const previewButton = createActionButton("Переглянути", "button-secondary");
+    previewButton.addEventListener("click", () => openMemePreview(meme));
+
+    const downloadButton = createActionButton("Завантажити", "button-secondary");
+    downloadButton.addEventListener("click", () => downloadGeneratedMeme(meme));
+
+    const favoriteButton = createActionButton(
+        meme.isFavorite ? "Прибрати з улюблених" : "В улюблені",
+        meme.isFavorite ? "button-favorite-active" : "button-secondary"
+    );
+    favoriteButton.addEventListener("click", () => toggleGeneratedMemeFavorite(meme.id, favoriteButton));
+
+    const deleteButton = createActionButton("Видалити", "button-danger");
+    deleteButton.addEventListener("click", () => deleteGeneratedMeme(meme.id, deleteButton));
+
+    actions.append(previewButton, downloadButton, favoriteButton, deleteButton);
+    return actions;
+}
+
+function createActionButton(text, modifier) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `button ${modifier}`;
+    button.textContent = text;
+    return button;
+}
+
+function createOptionalText(label, value) {
+    const normalized = value ? String(value).trim() : "";
+    if (!normalized || normalized === "None") {
+        return document.createDocumentFragment();
+    }
+
+    return createTextElement("p", `${label}: ${normalized}`);
 }
 
 async function handleTemplateSelection(event) {
@@ -664,7 +777,7 @@ function wrapText(ctx, text, maxWidth) {
     return lines;
 }
 
-function downloadMeme() {
+function downloadCanvasMeme() {
     if (!currentImage) {
         setEditorStatus("Спочатку оберіть або завантажте зображення.", "error");
         return;
@@ -677,6 +790,81 @@ function downloadMeme() {
     link.href = canvas.toDataURL("image/png");
     link.download = "memoid-meme.png";
     link.click();
+}
+
+function downloadGeneratedMeme(meme) {
+    if (!meme || !meme.imagePath) {
+        setGalleryStatus("error", "Немає зображення для завантаження.");
+        return;
+    }
+
+    const link = document.createElement("a");
+    link.href = meme.imagePath;
+    link.download = `memoid-${meme.id || "meme"}.png`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+}
+
+async function toggleGeneratedMemeFavorite(id, button = null) {
+    if (!id) {
+        return;
+    }
+
+    try {
+        if (button) {
+            button.disabled = true;
+        }
+
+        const updatedMeme = await fetchJson(`${API_BASE}/generated-memes/${id}/favorite`, {
+            method: "PATCH"
+        });
+
+        currentPreviewMeme = currentPreviewMeme && currentPreviewMeme.id === id ? updatedMeme : currentPreviewMeme;
+        setGalleryStatus("success", updatedMeme.isFavorite ? "Мем додано до улюблених." : "Мем прибрано з улюблених.");
+        await loadGeneratedMemes(getFavoritesOnly());
+
+        if (currentPreviewMeme && currentPreviewMeme.id === id) {
+            updatePreviewFavoriteButton(currentPreviewMeme);
+        }
+    } catch (error) {
+        console.error("Failed to toggle generated meme favorite", error);
+        setGalleryStatus("error", "Не вдалося змінити статус улюбленого мема.");
+    } finally {
+        if (button) {
+            button.disabled = false;
+        }
+    }
+}
+
+async function deleteGeneratedMeme(id, button = null) {
+    if (!id || !confirm("Видалити цей мем з галереї?")) {
+        return;
+    }
+
+    try {
+        if (button) {
+            button.disabled = true;
+        }
+
+        await fetchNoContent(`${API_BASE}/generated-memes/${id}`, {
+            method: "DELETE"
+        });
+
+        if (currentPreviewMeme && currentPreviewMeme.id === id) {
+            closeMemePreview();
+        }
+
+        setGalleryStatus("success", "Мем видалено з галереї.");
+        await loadGeneratedMemes(getFavoritesOnly());
+    } catch (error) {
+        console.error("Failed to delete generated meme", error);
+        setGalleryStatus("error", "Не вдалося видалити мем.");
+    } finally {
+        if (button) {
+            button.disabled = false;
+        }
+    }
 }
 
 async function saveMemeToGallery() {
@@ -703,6 +891,9 @@ async function saveMemeToGallery() {
         await createGeneratedMeme(payload);
         setEditorStatus("Мем збережено в галерею.", "success");
         await loadGeneratedMemes(getFavoritesOnly());
+        if (getFavoritesOnly()) {
+            setGalleryStatus("success", "Мем збережено, але фільтр показує тільки улюблені. Вимкніть фільтр, щоб побачити новий мем.");
+        }
     } catch (error) {
         console.error("Failed to save generated meme", error);
         setEditorStatus("Не вдалося зберегти мем.", "error");
@@ -759,6 +950,83 @@ function loadImage(src) {
     });
 }
 
+function openMemePreview(meme) {
+    currentPreviewMeme = meme;
+
+    const modal = document.getElementById("meme-preview-modal");
+    const image = document.getElementById("meme-preview-image");
+    const placeholder = document.getElementById("meme-preview-placeholder");
+    const title = document.getElementById("meme-preview-title");
+    const meta = document.getElementById("meme-preview-meta");
+    const text = document.getElementById("meme-preview-text");
+
+    if (!modal || !image || !placeholder || !title || !meta || !text) {
+        return;
+    }
+
+    title.textContent = meme.title || "Без назви";
+    meta.textContent = [
+        `Джерело: ${formatSourceType(meme.sourceType)}`,
+        meme.templateTitle ? `шаблон: ${meme.templateTitle}` : null,
+        `створено: ${formatDate(meme.createdAt)}`,
+        meme.appliedEffect ? `ефект: ${formatEffectName(meme.appliedEffect)}` : null
+    ].filter(Boolean).join(" · ");
+
+    text.textContent = [
+        meme.topText ? `Верхній текст: ${meme.topText}` : null,
+        meme.bottomText ? `Нижній текст: ${meme.bottomText}` : null
+    ].filter(Boolean).join(" | ");
+
+    placeholder.classList.add("is-hidden");
+    image.classList.remove("is-hidden");
+    image.alt = meme.title || "Створений мем";
+    image.onerror = () => {
+        image.classList.add("is-hidden");
+        placeholder.classList.remove("is-hidden");
+    };
+    image.src = meme.imagePath || "";
+
+    if (!meme.imagePath) {
+        image.classList.add("is-hidden");
+        placeholder.classList.remove("is-hidden");
+    }
+
+    updatePreviewFavoriteButton(meme);
+
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+}
+
+function closeMemePreview() {
+    const modal = document.getElementById("meme-preview-modal");
+    const image = document.getElementById("meme-preview-image");
+
+    if (modal) {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+    }
+
+    if (image) {
+        image.removeAttribute("src");
+    }
+
+    document.body.classList.remove("modal-open");
+    currentPreviewMeme = null;
+}
+
+function updatePreviewFavoriteButton(meme) {
+    const button = document.getElementById("meme-preview-favorite");
+
+    if (!button) {
+        return;
+    }
+
+    button.textContent = meme.isFavorite ? "Прибрати з улюблених" : "В улюблені";
+    button.classList.toggle("button-favorite-active", Boolean(meme.isFavorite));
+    button.classList.toggle("button-secondary", !meme.isFavorite);
+}
+
 function setApiStatus(type, message) {
     const badge = document.getElementById("api-status-badge");
     const statusMessage = document.getElementById("api-status-message");
@@ -790,6 +1058,20 @@ function setEditorStatus(message, type = "info") {
 
     status.classList.remove("success", "error");
     if (type === "success" || type === "error") {
+        status.classList.add(type);
+    }
+    status.textContent = message;
+}
+
+function setGalleryStatus(type, message) {
+    const status = document.getElementById("gallery-status");
+
+    if (!status) {
+        return;
+    }
+
+    status.classList.remove("success", "error", "loading");
+    if (type === "success" || type === "error" || type === "loading") {
         status.classList.add(type);
     }
     status.textContent = message;
@@ -830,7 +1112,7 @@ function createMeta(items) {
     return meta;
 }
 
-function createImageTile(src, placeholderText) {
+function createImageTile(src, placeholderText, altText = placeholderText) {
     const tile = document.createElement("div");
     tile.className = "image-tile";
 
@@ -844,7 +1126,7 @@ function createImageTile(src, placeholderText) {
     }
 
     const image = document.createElement("img");
-    image.alt = placeholderText;
+    image.alt = altText;
     image.loading = "lazy";
     image.src = src;
     image.onerror = () => {
@@ -939,14 +1221,27 @@ function clampColor(value) {
 
 function formatSourceType(sourceType) {
     if (sourceType === "Template") {
-        return "шаблон";
+        return "Шаблон";
     }
 
     if (sourceType === "Custom") {
-        return "власне зображення";
+        return "Власне фото";
     }
 
     return sourceType || "невідомо";
+}
+
+function formatEffectName(effect) {
+    const effects = {
+        None: "Без ефекту",
+        Grayscale: "Чорно-білий",
+        Contrast: "Контраст",
+        Red: "Червоний фільтр",
+        Blur: "Легке розмиття",
+        Shakal: "Шакалізація"
+    };
+
+    return effects[effect] || effect || "";
 }
 
 function formatDate(value) {
