@@ -129,6 +129,7 @@ function bindEditorControls() {
     const redrawButton = document.getElementById("redraw-meme-button");
     const downloadButton = document.getElementById("download-meme-button");
     const saveButton = document.getElementById("save-meme-button");
+    const clearButton = document.getElementById("clear-editor-button");
     const fontSizeInput = document.getElementById("font-size-input");
 
     if (templateSelect) {
@@ -149,6 +150,10 @@ function bindEditorControls() {
 
     if (saveButton) {
         saveButton.addEventListener("click", saveMemeToGallery);
+    }
+
+    if (clearButton) {
+        clearButton.addEventListener("click", clearEditor);
     }
 
     if (fontSizeInput) {
@@ -176,6 +181,7 @@ function bindEditorControls() {
 
     updateFontSizeLabel();
     clearCanvas();
+    updateEditorActionButtons();
 }
 
 async function initializePage() {
@@ -586,6 +592,7 @@ async function handleTemplateSelection(event) {
         clearCustomFileInput();
         setEditorStatus("Шаблон завантажено в редактор.", "success");
         renderCanvas();
+        updateEditorActionButtons();
     } catch (error) {
         console.error("Failed to load template image", error);
         resetEditorSource();
@@ -625,10 +632,30 @@ async function handleCustomImageSelection(event) {
 
         setEditorStatus("Власне зображення завантажено в редактор.", "success");
         renderCanvas();
+        updateEditorActionButtons();
     } catch (error) {
         console.error("Failed to upload custom image", error);
         setEditorStatus("Не вдалося завантажити зображення.", "error");
     }
+}
+
+function clearEditor() {
+    resetEditorSource();
+    clearCanvas();
+    clearCustomFileInput();
+    setElementValue("editor-template-select", "");
+    setElementValue("meme-title-input", "Мій мем");
+    setElementValue("top-text-input", "");
+    setElementValue("bottom-text-input", "");
+    setElementValue("font-family-select", "Arial");
+    setElementValue("font-size-input", "48");
+    setElementValue("text-color-input", "#ffffff");
+    setElementValue("text-position-select", "TopAndBottom");
+    setElementValue("image-effect-select", "None");
+    setElementValue("image-fit-select", "Original");
+    updateFontSizeLabel();
+    updateEditorActionButtons();
+    setEditorStatus("Редактор очищено. Оберіть шаблон або завантажте фото.", "info");
 }
 
 async function createCategoryFromForm() {
@@ -1085,6 +1112,8 @@ function clearCanvas() {
     if (emptyState) {
         emptyState.classList.remove("is-hidden");
     }
+
+    updateEditorActionButtons();
 }
 
 function getCanvasSize(image, fitMode = "Original") {
@@ -1443,9 +1472,7 @@ async function saveMemeToGallery() {
         console.error("Failed to save generated meme", error);
         setEditorStatus("Не вдалося зберегти мем.", "error");
     } finally {
-        if (saveButton) {
-            saveButton.disabled = false;
-        }
+        updateEditorActionButtons();
     }
 }
 
@@ -1473,11 +1500,19 @@ function buildAppliedEffectMetadata() {
     const effect = getEditorValue("image-effect-select", "None");
     const fitMode = getEditorValue("image-fit-select", "Original");
 
-    if (fitMode === "Original") {
+    if (effect === "None" && fitMode === "Original") {
+        return "None";
+    }
+
+    if (effect !== "None" && fitMode === "Original") {
         return effect;
     }
 
-    return `${effect} + ${fitMode}`;
+    if (effect === "None") {
+        return `Fit: ${fitMode}`;
+    }
+
+    return `${effect} + Fit: ${fitMode}`;
 }
 
 function canvasToBlob(canvas) {
@@ -1771,6 +1806,7 @@ function resetEditorSource() {
     currentSourceType = null;
     currentTemplateId = null;
     currentOriginalImagePath = null;
+    updateEditorActionButtons();
 }
 
 function clearCustomFileInput() {
@@ -1780,9 +1816,31 @@ function clearCustomFileInput() {
     }
 }
 
+function updateEditorActionButtons() {
+    const hasImage = Boolean(currentImage);
+
+    [
+        "redraw-meme-button",
+        "download-meme-button",
+        "save-meme-button"
+    ].forEach((id) => {
+        const button = document.getElementById(id);
+        if (button) {
+            button.disabled = !hasImage;
+        }
+    });
+}
+
 function getEditorValue(id, fallback) {
     const element = document.getElementById(id);
     return element ? element.value : fallback;
+}
+
+function setElementValue(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.value = value;
+    }
 }
 
 function getFavoritesOnly() {
@@ -1818,6 +1876,10 @@ function formatSourceType(sourceType) {
 function formatEffectName(effect) {
     if (effect && effect.includes(" + ")) {
         return effect.split(" + ").map(formatEffectName).join(" + ");
+    }
+
+    if (effect && effect.startsWith("Fit: ")) {
+        return `Кадрування: ${formatEffectName(effect.replace("Fit: ", ""))}`;
     }
 
     const effects = {
