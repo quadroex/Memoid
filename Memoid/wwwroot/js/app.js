@@ -1465,8 +1465,19 @@ function buildGeneratedMemePayload(imagePath) {
         fontSize: Number(getEditorValue("font-size-input", "48")),
         textColor: getEditorValue("text-color-input", "#ffffff"),
         textBackgroundColor: null,
-        appliedEffect: getEditorValue("image-effect-select", "None")
+        appliedEffect: buildAppliedEffectMetadata()
     };
+}
+
+function buildAppliedEffectMetadata() {
+    const effect = getEditorValue("image-effect-select", "None");
+    const fitMode = getEditorValue("image-fit-select", "Original");
+
+    if (fitMode === "Original") {
+        return effect;
+    }
+
+    return `${effect} + ${fitMode}`;
 }
 
 function canvasToBlob(canvas) {
@@ -1805,13 +1816,21 @@ function formatSourceType(sourceType) {
 }
 
 function formatEffectName(effect) {
+    if (effect && effect.includes(" + ")) {
+        return effect.split(" + ").map(formatEffectName).join(" + ");
+    }
+
     const effects = {
         None: "Без ефекту",
         Grayscale: "Чорно-білий",
         Contrast: "Контраст",
         Red: "Червоний фільтр",
         Blur: "Легке розмиття",
-        Shakal: "Шакалізація"
+        Shakal: "Шакалізація",
+        Original: "Оригінальні пропорції",
+        Contain: "Вписати повністю",
+        Cover: "Заповнити полотно",
+        Square: "Квадратний мем"
     };
 
     return effects[effect] || effect || "";
