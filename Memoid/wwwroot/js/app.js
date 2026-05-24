@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bindDataControls();
     bindEditorControls();
     bindGalleryModalControls();
+    bindCategoryManagementControls();
     bindTemplateCreationControls();
     initializePage();
 });
@@ -40,6 +41,30 @@ function bindDataControls() {
         favoritesToggle.addEventListener("change", () => {
             loadGeneratedMemes(favoritesToggle.checked);
         });
+    }
+}
+
+function bindCategoryManagementControls() {
+    const createForm = document.getElementById("create-category-form");
+    const editForm = document.getElementById("edit-category-form");
+    const cancelButton = document.getElementById("cancel-category-edit-button");
+
+    if (createForm) {
+        createForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            createCategoryFromForm();
+        });
+    }
+
+    if (editForm) {
+        editForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            saveCategoryEdit();
+        });
+    }
+
+    if (cancelButton) {
+        cancelButton.addEventListener("click", cancelCategoryEdit);
     }
 }
 
@@ -206,7 +231,7 @@ async function loadCategories() {
     setLoading(container, "Завантажуємо категорії...");
 
     try {
-        const categories = await fetchJson(`${API_BASE}/meme-categories`);
+        const categories = await fetchJson(`${API_BASE}/meme-categories?includeInactive=true`);
         cachedCategories = Array.isArray(categories) ? categories : [];
         renderCategories(cachedCategories);
         renderTemplateCategoryFilter(cachedCategories);
@@ -287,10 +312,28 @@ function renderCategories(categories) {
             createTextElement("p", category.description || "Опис категорії ще не додано."),
             createMeta([
                 formatCount(category.templatesCount, "шаблон", "шаблони", "шаблонів")
-            ])
+            ]),
+            createCategoryActions(category)
         );
         container.append(card);
     });
+}
+
+function createCategoryActions(category) {
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const editButton = createActionButton("Редагувати", "button-secondary");
+    editButton.addEventListener("click", () => startCategoryEdit(category.id));
+
+    const deleteButtonText = Number(category.templatesCount) > 0
+        ? "Деактивувати"
+        : "Видалити";
+    const deleteButton = createActionButton(deleteButtonText, "button-danger");
+    deleteButton.addEventListener("click", () => deleteOrDeactivateCategory(category.id, deleteButton));
+
+    actions.append(editButton, deleteButton);
+    return actions;
 }
 
 function renderTemplateCategoryFilter(categories) {
@@ -309,12 +352,14 @@ function renderTemplateCategoryFilter(categories) {
     filter.append(allOption);
 
     if (Array.isArray(categories)) {
-        categories.forEach((category) => {
-            const option = document.createElement("option");
-            option.value = String(category.id);
-            option.textContent = category.name || `Категорія #${category.id}`;
-            filter.append(option);
-        });
+        categories
+            .filter((category) => category.isActive !== false)
+            .forEach((category) => {
+                const option = document.createElement("option");
+                option.value = String(category.id);
+                option.textContent = category.name || `Категорія #${category.id}`;
+                filter.append(option);
+            });
     }
 
     filter.value = Array.from(filter.options).some((option) => option.value === currentValue)
@@ -582,6 +627,241 @@ async function handleCustomImageSelection(event) {
         console.error("Failed to upload custom image", error);
         setEditorStatus("Не вдалося завантажити зображення.", "error");
     }
+}
+
+async function createCategoryFromForm() {
+    const nameInput = document.getElementById("new-category-name");
+    const descriptionInput = document.getElementById("new-category-description");
+    const createButton = document.getElementById("create-category-button");
+
+    const name = nameInput ? nameInput.value.trim() : "";
+    const description = descriptionInput ? descriptionInput.value.trim() : "";
+    const validationError = validateCategoryForm(name, description);
+
+    if (validationError) {
+        setCategoryFormStatus("error", validationError);
+        return;
+    }
+
+    try {
+        if (createButton) {
+            createButton.disabled = true;
+            createButton.textContent = "Додаємо...";
+        }
+
+        setCategoryFormStatus("loading", "Створюємо категорію...");
+        await fetchJson(`${API_BASE}/meme-categories`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name,
+                description: description || null
+            })
+        });
+
+        resetCategoryCreateForm();
+        setCategoryFormStatus("success", "Категорію додано.");
+        await refreshCategoriesAndTemplates();
+    } catch (error) {
+        console.error("Failed to create category", error);
+        setCategoryFormStatus("error", getFriendlyCategoryError(error));
+    } finally {
+        if (createButton) {
+            createButton.disabled = false;
+            createButton.textContent = "Додати категорію";
+        }
+    }
+}
+
+function startCategoryEdit(categoryId) {
+    const category = cachedCategories.find((item) => item.id === categoryId);
+    const editForm = document.getElementById("edit-category-form");
+    const idInput = document.getElementById("edit-category-id");
+    const nameInput = document.getElementById("edit-category-name");
+    const descriptionInput = document.getElementById("edit-category-description");
+    const activeInput = document.getElementById("edit-category-active");
+
+    if (!category || !editForm || !idInput || !nameInput || !descriptionInput || !activeInput) {
+        setCategoryFormStatus("error", "Категорію не знайдено.");
+        return;
+    }
+
+    idInput.value = String(category.id);
+    nameInput.value = category.name || "";
+    descriptionInput.value = category.description || "";
+    activeInput.checked = category.isActive !== false;
+    editForm.hidden = false;
+    editForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    setCategoryFormStatus("info", "Внесіть зміни та натисніть \"Зберегти\".");
+}
+
+function cancelCategoryEdit() {
+    const editForm = document.getElementById("edit-category-form");
+    const idInput = document.getElementById("edit-category-id");
+    const nameInput = document.getElementById("edit-category-name");
+    const descriptionInput = document.getElementById("edit-category-description");
+    const activeInput = document.getElementById("edit-category-active");
+
+    if (idInput) {
+        idInput.value = "";
+    }
+
+    if (nameInput) {
+        nameInput.value = "";
+    }
+
+    if (descriptionInput) {
+        descriptionInput.value = "";
+    }
+
+    if (activeInput) {
+        activeInput.checked = true;
+    }
+
+    if (editForm) {
+        editForm.hidden = true;
+    }
+}
+
+async function saveCategoryEdit() {
+    const idInput = document.getElementById("edit-category-id");
+    const nameInput = document.getElementById("edit-category-name");
+    const descriptionInput = document.getElementById("edit-category-description");
+    const activeInput = document.getElementById("edit-category-active");
+    const saveButton = document.getElementById("save-category-button");
+
+    const id = idInput ? Number(idInput.value) : 0;
+    const name = nameInput ? nameInput.value.trim() : "";
+    const description = descriptionInput ? descriptionInput.value.trim() : "";
+    const isActive = Boolean(activeInput && activeInput.checked);
+    const validationError = validateCategoryForm(name, description);
+
+    if (!id) {
+        setCategoryFormStatus("error", "Категорію не знайдено.");
+        return;
+    }
+
+    if (validationError) {
+        setCategoryFormStatus("error", validationError);
+        return;
+    }
+
+    try {
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = "Зберігаємо...";
+        }
+
+        setCategoryFormStatus("loading", "Зберігаємо категорію...");
+        await fetchNoContent(`${API_BASE}/meme-categories/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name,
+                description: description || null,
+                isActive
+            })
+        });
+
+        cancelCategoryEdit();
+        setCategoryFormStatus("success", "Категорію оновлено.");
+        await refreshCategoriesAndTemplates();
+    } catch (error) {
+        console.error("Failed to update category", error);
+        setCategoryFormStatus("error", getFriendlyCategoryError(error));
+    } finally {
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = "Зберегти";
+        }
+    }
+}
+
+async function deleteOrDeactivateCategory(categoryId, button = null) {
+    if (!categoryId || !confirm("Видалити або деактивувати цю категорію?")) {
+        return;
+    }
+
+    try {
+        if (button) {
+            button.disabled = true;
+        }
+
+        setCategoryFormStatus("loading", "Оновлюємо категорії...");
+        await fetchNoContent(`${API_BASE}/meme-categories/${categoryId}`, {
+            method: "DELETE"
+        });
+
+        cancelCategoryEdit();
+        setCategoryFormStatus("success", "Категорію видалено або деактивовано.");
+        await refreshCategoriesAndTemplates();
+    } catch (error) {
+        console.error("Failed to delete or deactivate category", error);
+        setCategoryFormStatus("error", "Не вдалося видалити або деактивувати категорію.");
+    } finally {
+        if (button) {
+            button.disabled = false;
+        }
+    }
+}
+
+function validateCategoryForm(name, description) {
+    if (!name) {
+        return "Вкажіть назву категорії.";
+    }
+
+    if (name.length > 80) {
+        return "Назва категорії не може бути довшою за 80 символів.";
+    }
+
+    if (description && description.length > 300) {
+        return "Опис категорії не може бути довшим за 300 символів.";
+    }
+
+    return null;
+}
+
+function resetCategoryCreateForm() {
+    const nameInput = document.getElementById("new-category-name");
+    const descriptionInput = document.getElementById("new-category-description");
+
+    if (nameInput) {
+        nameInput.value = "";
+    }
+
+    if (descriptionInput) {
+        descriptionInput.value = "";
+    }
+}
+
+async function refreshCategoriesAndTemplates() {
+    const categoryFilter = document.getElementById("template-category-filter");
+    const selectedCategoryId = categoryFilter ? categoryFilter.value : "";
+
+    await loadCategories();
+    await loadTemplates();
+
+    if (selectedCategoryId && categoryFilter && categoryFilter.value === selectedCategoryId) {
+        await loadTemplates(selectedCategoryId);
+    }
+}
+
+function getFriendlyCategoryError(error) {
+    const message = error && error.message ? error.message : "";
+
+    if (message.includes("вже існує")) {
+        return "Категорія з такою назвою вже існує.";
+    }
+
+    if (message.includes("не знайдено")) {
+        return "Категорію не знайдено.";
+    }
+
+    return "Не вдалося зберегти категорію.";
 }
 
 async function createTemplateFromForm() {
@@ -1278,6 +1558,20 @@ function setEditorStatus(message, type = "info") {
 
 function setGalleryStatus(type, message) {
     const status = document.getElementById("gallery-status");
+
+    if (!status) {
+        return;
+    }
+
+    status.classList.remove("success", "error", "loading");
+    if (type === "success" || type === "error" || type === "loading") {
+        status.classList.add(type);
+    }
+    status.textContent = message;
+}
+
+function setCategoryFormStatus(type, message) {
+    const status = document.getElementById("category-form-status");
 
     if (!status) {
         return;

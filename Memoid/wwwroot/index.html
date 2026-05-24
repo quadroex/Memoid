@@ -52,6 +52,59 @@
                 <p class="eyebrow">Довідник</p>
                 <h2>Категорії</h2>
             </div>
+            <div class="category-management-panel">
+                <form id="create-category-form" class="category-form">
+                    <div>
+                        <p class="eyebrow">Керування</p>
+                        <h3>Керування категоріями</h3>
+                        <p class="section-note">
+                            Додайте категорію, щоб потім прив'язувати до неї нові шаблони мемів.
+                        </p>
+                    </div>
+                    <div class="category-form-grid">
+                        <div class="field">
+                            <label for="new-category-name">Назва категорії</label>
+                            <input id="new-category-name" type="text" maxlength="80" placeholder="Наприклад: Програмування">
+                        </div>
+                        <div class="field">
+                            <label for="new-category-description">Опис категорії</label>
+                            <textarea id="new-category-description" maxlength="300" rows="3" placeholder="Короткий опис категорії"></textarea>
+                        </div>
+                        <div class="field category-submit-field">
+                            <button id="create-category-button" class="button button-primary" type="submit">Додати категорію</button>
+                        </div>
+                    </div>
+                    <div id="category-form-status" class="status-message category-form-status" aria-live="polite">
+                        Створіть нову категорію для шаблонів.
+                    </div>
+                </form>
+
+                <form id="edit-category-form" class="category-form category-edit-panel" hidden>
+                    <input id="edit-category-id" type="hidden">
+                    <div>
+                        <p class="eyebrow">Редагування</p>
+                        <h3>Редагувати категорію</h3>
+                    </div>
+                    <div class="category-form-grid">
+                        <div class="field">
+                            <label for="edit-category-name">Назва категорії</label>
+                            <input id="edit-category-name" type="text" maxlength="80">
+                        </div>
+                        <div class="field">
+                            <label for="edit-category-description">Опис категорії</label>
+                            <textarea id="edit-category-description" maxlength="300" rows="3"></textarea>
+                        </div>
+                        <label class="toggle-control category-active-toggle" for="edit-category-active">
+                            <input id="edit-category-active" type="checkbox">
+                            <span>Активна категорія</span>
+                        </label>
+                    </div>
+                    <div class="category-edit-actions">
+                        <button id="save-category-button" class="button button-primary" type="submit">Зберегти</button>
+                        <button id="cancel-category-edit-button" class="button button-secondary" type="button">Скасувати</button>
+                    </div>
+                </form>
+            </div>
             <div id="categories-list" class="cards-grid" aria-live="polite">
                 <p class="loading-card">Завантажуємо категорії...</p>
             </div>
