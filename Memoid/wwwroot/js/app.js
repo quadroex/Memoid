@@ -5,6 +5,7 @@ const MAX_UPLOAD_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const CANVAS_MAX_WIDTH = 900;
 const CANVAS_MAX_HEIGHT = 600;
+const CANVAS_SQUARE_SIZE = 700;
 
 let cachedCategories = [];
 let cachedTemplates = [];
@@ -163,7 +164,8 @@ function bindEditorControls() {
         "font-family-select",
         "text-color-input",
         "text-position-select",
-        "image-effect-select"
+        "image-effect-select",
+        "image-fit-select"
     ].forEach((id) => {
         const element = document.getElementById(id);
         if (element) {
@@ -1054,7 +1056,8 @@ function renderCanvas() {
         return;
     }
 
-    const { width, height } = getCanvasSize(currentImage);
+    const fitMode = getEditorValue("image-fit-select", "Original");
+    const { width, height } = getCanvasSize(currentImage, fitMode);
     canvas.width = width;
     canvas.height = height;
 
@@ -1062,7 +1065,7 @@ function renderCanvas() {
         emptyState.classList.add("is-hidden");
     }
 
-    drawBaseImage(ctx, canvas, currentImage, getEditorValue("image-effect-select", "None"));
+    drawBaseImage(ctx, canvas, currentImage, getEditorValue("image-effect-select", "None"), fitMode);
     drawMemeText(ctx, canvas);
 }
 
@@ -1084,9 +1087,24 @@ function clearCanvas() {
     }
 }
 
-function getCanvasSize(image) {
+function getCanvasSize(image, fitMode = "Original") {
     const sourceWidth = image.naturalWidth || image.width;
     const sourceHeight = image.naturalHeight || image.height;
+
+    if (fitMode === "Contain" || fitMode === "Cover") {
+        return {
+            width: CANVAS_MAX_WIDTH,
+            height: CANVAS_MAX_HEIGHT
+        };
+    }
+
+    if (fitMode === "Square") {
+        return {
+            width: CANVAS_SQUARE_SIZE,
+            height: CANVAS_SQUARE_SIZE
+        };
+    }
+
     const scale = Math.min(CANVAS_MAX_WIDTH / sourceWidth, CANVAS_MAX_HEIGHT / sourceHeight, 1);
 
     return {
@@ -1095,15 +1113,46 @@ function getCanvasSize(image) {
     };
 }
 
-function drawBaseImage(ctx, canvas, image, effect) {
+function getImageDrawRect(image, canvas, fitMode = "Original") {
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+
+    if (fitMode === "Original") {
+        return {
+            x: 0,
+            y: 0,
+            width: canvas.width,
+            height: canvas.height
+        };
+    }
+
+    const scale = fitMode === "Contain"
+        ? Math.min(canvas.width / sourceWidth, canvas.height / sourceHeight)
+        : Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
+    const width = sourceWidth * scale;
+    const height = sourceHeight * scale;
+
+    return {
+        x: (canvas.width - width) / 2,
+        y: (canvas.height - height) / 2,
+        width,
+        height
+    };
+}
+
+function drawBaseImage(ctx, canvas, image, effect, fitMode = "Original") {
+    const drawRect = getImageDrawRect(image, canvas, fitMode);
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#020617";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = true;
     ctx.filter = effect === "Blur" ? "blur(2px)" : "none";
 
     if (effect === "Shakal") {
-        drawShakalizedImage(ctx, canvas, image);
+        drawShakalizedImage(ctx, canvas, image, fitMode);
     } else {
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, drawRect.x, drawRect.y, drawRect.width, drawRect.height);
     }
 
     ctx.filter = "none";
@@ -1113,14 +1162,17 @@ function drawBaseImage(ctx, canvas, image, effect) {
     }
 }
 
-function drawShakalizedImage(ctx, canvas, image) {
+function drawShakalizedImage(ctx, canvas, image, fitMode = "Original") {
     const smallCanvas = document.createElement("canvas");
     const smallCtx = smallCanvas.getContext("2d");
     smallCanvas.width = Math.max(24, Math.round(canvas.width / 8));
     smallCanvas.height = Math.max(24, Math.round(canvas.height / 8));
+    const smallDrawRect = getImageDrawRect(image, smallCanvas, fitMode);
 
+    smallCtx.fillStyle = "#020617";
+    smallCtx.fillRect(0, 0, smallCanvas.width, smallCanvas.height);
     smallCtx.imageSmoothingEnabled = false;
-    smallCtx.drawImage(image, 0, 0, smallCanvas.width, smallCanvas.height);
+    smallCtx.drawImage(image, smallDrawRect.x, smallDrawRect.y, smallDrawRect.width, smallDrawRect.height);
 
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(smallCanvas, 0, 0, canvas.width, canvas.height);
