@@ -3,6 +3,19 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Memoid local development settings
+Memoid/appsettings.Development.json
+
+# Memoid uploaded files
+Memoid/wwwroot/uploads/custom/*
+Memoid/wwwroot/uploads/generated/*
+Memoid/wwwroot/uploads/templates/*
+
+# Keep upload directories
+!Memoid/wwwroot/uploads/custom/.gitkeep
+!Memoid/wwwroot/uploads/generated/.gitkeep
+!Memoid/wwwroot/uploads/templates/.gitkeep
+
 # User-specific files
 *.rsuser
 *.suo

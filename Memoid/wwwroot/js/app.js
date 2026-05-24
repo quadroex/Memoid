@@ -21,6 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bindDataControls();
     bindEditorControls();
     bindGalleryModalControls();
+    bindTemplateCreationControls();
     initializePage();
 });
 
@@ -80,6 +81,19 @@ function bindGalleryModalControls() {
         if (event.key === "Escape") {
             closeMemePreview();
         }
+    });
+}
+
+function bindTemplateCreationControls() {
+    const form = document.getElementById("create-template-form");
+
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        createTemplateFromForm();
     });
 }
 
@@ -157,11 +171,11 @@ async function initializePage() {
 
 async function fetchJson(url, options = {}) {
     const response = await fetch(url, {
+        ...options,
         headers: {
             "Accept": "application/json",
             ...(options.headers || {})
-        },
-        ...options
+        }
     });
 
     if (!response.ok) {
@@ -174,11 +188,11 @@ async function fetchJson(url, options = {}) {
 
 async function fetchNoContent(url, options = {}) {
     const response = await fetch(url, {
+        ...options,
         headers: {
             "Accept": "application/json",
             ...(options.headers || {})
-        },
-        ...options
+        }
     });
 
     if (!response.ok) {
@@ -196,11 +210,13 @@ async function loadCategories() {
         cachedCategories = Array.isArray(categories) ? categories : [];
         renderCategories(cachedCategories);
         renderTemplateCategoryFilter(cachedCategories);
+        renderNewTemplateCategorySelect(cachedCategories);
         return cachedCategories;
     } catch (error) {
         console.error("Failed to load categories", error);
         renderError(container, "Не вдалося завантажити категорії.");
         renderTemplateCategoryFilter([]);
+        renderNewTemplateCategorySelect([]);
         return null;
     }
 }
@@ -306,6 +322,49 @@ function renderTemplateCategoryFilter(categories) {
         : "";
 }
 
+function renderNewTemplateCategorySelect(categories) {
+    const select = document.getElementById("new-template-category");
+    const createButton = document.getElementById("create-template-button");
+
+    if (!select) {
+        return;
+    }
+
+    const currentValue = select.value;
+    clearElement(select);
+
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "Оберіть категорію";
+    select.append(emptyOption);
+
+    const activeCategories = Array.isArray(categories)
+        ? categories.filter((category) => category.isActive !== false)
+        : [];
+
+    activeCategories.forEach((category) => {
+        const option = document.createElement("option");
+        option.value = String(category.id);
+        option.textContent = category.name || `Категорія #${category.id}`;
+        select.append(option);
+    });
+
+    select.value = Array.from(select.options).some((option) => option.value === currentValue)
+        ? currentValue
+        : "";
+
+    const hasCategories = activeCategories.length > 0;
+    select.disabled = !hasCategories;
+
+    if (createButton) {
+        createButton.disabled = !hasCategories;
+    }
+
+    if (!hasCategories) {
+        setTemplateFormStatus("error", "Спочатку потрібно створити активну категорію.");
+    }
+}
+
 function renderEditorTemplateSelect(templates) {
     const select = document.getElementById("editor-template-select");
 
@@ -358,10 +417,22 @@ function renderTemplates(templates) {
             createTextElement("p", template.imagePath || "Шлях до зображення не вказано.", "path-text"),
             createMeta([
                 formatCount(template.generatedMemesCount, "створений мем", "створені меми", "створених мемів")
-            ])
+            ]),
+            createTemplateActions(template)
         );
         container.append(card);
     });
+}
+
+function createTemplateActions(template) {
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const useButton = createActionButton("Використати в редакторі", "button-secondary");
+    useButton.addEventListener("click", () => useTemplateInEditor(template.id));
+
+    actions.append(useButton);
+    return actions;
 }
 
 function renderGeneratedMemes(memes) {
@@ -511,6 +582,148 @@ async function handleCustomImageSelection(event) {
         console.error("Failed to upload custom image", error);
         setEditorStatus("Не вдалося завантажити зображення.", "error");
     }
+}
+
+async function createTemplateFromForm() {
+    const titleInput = document.getElementById("new-template-title");
+    const categorySelect = document.getElementById("new-template-category");
+    const fileInput = document.getElementById("new-template-file");
+    const createButton = document.getElementById("create-template-button");
+
+    const title = titleInput ? titleInput.value.trim() : "";
+    const categoryId = categorySelect ? Number(categorySelect.value) : 0;
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+    const validationError = validateTemplateForm(title, categoryId, file);
+    if (validationError) {
+        setTemplateFormStatus("error", validationError);
+        return;
+    }
+
+    try {
+        if (createButton) {
+            createButton.disabled = true;
+            createButton.textContent = "Додаємо...";
+        }
+
+        setTemplateFormStatus("loading", "Завантажуємо зображення шаблона...");
+        const uploaded = await uploadFile(`${API_BASE}/uploads/templates`, file);
+
+        setTemplateFormStatus("loading", "Створюємо запис шаблона...");
+        await createMemeTemplate({
+            title,
+            imagePath: uploaded.relativePath,
+            memeCategoryId: categoryId
+        });
+
+        resetTemplateForm();
+        setTemplateFormStatus("success", "Шаблон додано. Тепер його можна обрати в редакторі.");
+
+        await refreshTemplatesAfterTemplateCreate();
+    } catch (error) {
+        console.error("Failed to create meme template", error);
+        setTemplateFormStatus("error", getFriendlyTemplateCreateError(error));
+    } finally {
+        if (createButton) {
+            createButton.textContent = "Додати шаблон";
+            createButton.disabled = !hasActiveCategories();
+        }
+    }
+}
+
+function validateTemplateForm(title, categoryId, file) {
+    if (!title) {
+        return "Вкажіть назву шаблона.";
+    }
+
+    if (title.length > 120) {
+        return "Назва шаблона не може бути довшою за 120 символів.";
+    }
+
+    if (!categoryId) {
+        return "Оберіть категорію шаблона.";
+    }
+
+    if (!file) {
+        return "Оберіть зображення шаблона.";
+    }
+
+    return validateClientImage(file);
+}
+
+async function createMemeTemplate(payload) {
+    return fetchJson(`${API_BASE}/meme-templates`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+    });
+}
+
+async function refreshTemplatesAfterTemplateCreate() {
+    const categoryFilter = document.getElementById("template-category-filter");
+    const selectedCategoryId = categoryFilter ? categoryFilter.value : "";
+
+    await loadTemplates();
+
+    if (selectedCategoryId) {
+        await loadTemplates(selectedCategoryId);
+    }
+}
+
+function resetTemplateForm() {
+    const titleInput = document.getElementById("new-template-title");
+    const categorySelect = document.getElementById("new-template-category");
+    const fileInput = document.getElementById("new-template-file");
+
+    if (titleInput) {
+        titleInput.value = "";
+    }
+
+    if (categorySelect) {
+        categorySelect.value = "";
+    }
+
+    if (fileInput) {
+        fileInput.value = "";
+    }
+}
+
+function useTemplateInEditor(templateId) {
+    const select = document.getElementById("editor-template-select");
+
+    if (!select) {
+        return;
+    }
+
+    select.value = String(templateId);
+    select.dispatchEvent(new Event("change"));
+
+    const editorSection = document.getElementById("editor-section");
+    if (editorSection) {
+        editorSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    setEditorStatus("Шаблон обрано для редагування.", "success");
+}
+
+function hasActiveCategories() {
+    return cachedCategories.some((category) => category.isActive !== false);
+}
+
+function getFriendlyTemplateCreateError(error) {
+    const message = error && error.message ? error.message : "";
+
+    if (message.includes("вже існує")) {
+        return "Шаблон з такою назвою вже існує.";
+    }
+
+    if (message.includes("Непідтримуваний") || message.includes("формати")) {
+        return "Підтримуються лише JPG, PNG або WEBP.";
+    }
+
+    return "Не вдалося додати шаблон.";
 }
 
 function validateClientImage(file) {
@@ -1065,6 +1278,20 @@ function setEditorStatus(message, type = "info") {
 
 function setGalleryStatus(type, message) {
     const status = document.getElementById("gallery-status");
+
+    if (!status) {
+        return;
+    }
+
+    status.classList.remove("success", "error", "loading");
+    if (type === "success" || type === "error" || type === "loading") {
+        status.classList.add(type);
+    }
+    status.textContent = message;
+}
+
+function setTemplateFormStatus(type, message) {
+    const status = document.getElementById("template-form-status");
 
     if (!status) {
         return;

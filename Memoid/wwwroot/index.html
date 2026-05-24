@@ -70,6 +70,38 @@
                     </select>
                 </div>
             </div>
+            <form id="create-template-form" class="template-create-panel">
+                <div>
+                    <p class="eyebrow">Новий шаблон</p>
+                    <h3>Додати власний шаблон</h3>
+                    <p class="section-note">
+                        Завантажте зображення шаблона, вкажіть назву та категорію. Після збереження шаблон
+                        можна буде одразу обрати в редакторі.
+                    </p>
+                </div>
+                <div class="template-form-grid">
+                    <div class="field">
+                        <label for="new-template-title">Назва шаблона</label>
+                        <input id="new-template-title" type="text" maxlength="120" placeholder="Наприклад: Кіт на дедлайні">
+                    </div>
+                    <div class="field">
+                        <label for="new-template-category">Категорія</label>
+                        <select id="new-template-category">
+                            <option value="">Оберіть категорію</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="new-template-file">Зображення шаблона</label>
+                        <input id="new-template-file" type="file" accept="image/jpeg,image/png,image/webp">
+                    </div>
+                    <div class="field template-submit-field">
+                        <button id="create-template-button" class="button button-primary" type="submit">Додати шаблон</button>
+                    </div>
+                </div>
+                <div id="template-form-status" class="status-message template-form-status" aria-live="polite">
+                    Оберіть файл, назву та категорію для нового шаблона.
+                </div>
+            </form>
             <div id="templates-list" class="cards-grid" aria-live="polite">
                 <p class="loading-card">Завантажуємо шаблони...</p>
             </div>
