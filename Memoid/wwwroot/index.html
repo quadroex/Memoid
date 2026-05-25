@@ -7,293 +7,317 @@
     <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
-    <main class="page-shell">
-        <section class="hero section">
-            <div class="hero-content">
-                <p id="api-status-badge" class="status-badge status-loading">Підключення до Web API...</p>
-                <h1>Memoid</h1>
-                <p class="hero-text">
-                    Вебзастосунок для створення мемів на основі шаблонів і власних зображень.
-                    Дані завантажуються з ASP.NET Core Web API, а редактор працює прямо в браузері через HTML5 Canvas.
-                </p>
-                <div class="hero-actions" aria-label="Посилання проєкту">
-                    <a class="button button-primary" href="#editor-section">Відкрити редактор</a>
-                    <a class="button button-secondary" href="/openapi/v1.json">OpenAPI JSON</a>
-                </div>
-            </div>
-            <div class="hero-panel" aria-label="Стан проєкту">
-                <div class="panel-line">
-                    <span>Frontend</span>
-                    <strong>HTML, CSS, JavaScript, Canvas</strong>
-                </div>
-                <div class="panel-line">
-                    <span>Backend</span>
-                    <strong>ASP.NET Core Web API</strong>
-                </div>
-                <div class="panel-line">
-                    <span>Зображення</span>
-                    <strong>wwwroot/uploads</strong>
-                </div>
-            </div>
-        </section>
+    <header class="app-header">
+        <a class="app-logo" href="#" data-view-target="gallery" aria-label="Memoid">
+            <span class="logo-mark">M</span>
+            <span>Memoid</span>
+        </a>
+        <nav class="app-nav" aria-label="Головна навігація">
+            <button class="nav-button is-active" type="button" data-view-target="gallery">Галерея</button>
+            <button class="nav-button" type="button" data-view-target="create">Створити мем</button>
+            <button class="nav-button" type="button" data-view-target="create" data-open-management="true">Шаблони</button>
+        </nav>
+    </header>
 
-        <section class="api-status section" aria-live="polite">
-            <div>
-                <p class="eyebrow">Стан API</p>
-                <h2>Дані з backend</h2>
-            </div>
-            <p id="api-status-message" class="status-message status-loading">
-                Завантажуємо категорії, шаблони та галерею...
-            </p>
-        </section>
-
-        <section id="categories" class="section">
-            <div class="section-heading">
-                <p class="eyebrow">Довідник</p>
-                <h2>Категорії</h2>
-            </div>
-            <div class="category-management-panel">
-                <form id="create-category-form" class="category-form">
-                    <div>
-                        <p class="eyebrow">Керування</p>
-                        <h3>Керування категоріями</h3>
-                        <p class="section-note">
-                            Додайте категорію, щоб потім прив'язувати до неї нові шаблони мемів.
-                        </p>
-                    </div>
-                    <div class="category-form-grid">
-                        <div class="field">
-                            <label for="new-category-name">Назва категорії</label>
-                            <input id="new-category-name" type="text" maxlength="80" placeholder="Наприклад: Програмування">
-                        </div>
-                        <div class="field">
-                            <label for="new-category-description">Опис категорії</label>
-                            <textarea id="new-category-description" maxlength="300" rows="3" placeholder="Короткий опис категорії"></textarea>
-                        </div>
-                        <div class="field category-submit-field">
-                            <button id="create-category-button" class="button button-primary" type="submit">Додати категорію</button>
-                        </div>
-                    </div>
-                    <div id="category-form-status" class="status-message category-form-status" aria-live="polite">
-                        Створіть нову категорію для шаблонів.
-                    </div>
-                </form>
-
-                <form id="edit-category-form" class="category-form category-edit-panel" hidden>
-                    <input id="edit-category-id" type="hidden">
-                    <div>
-                        <p class="eyebrow">Редагування</p>
-                        <h3>Редагувати категорію</h3>
-                    </div>
-                    <div class="category-form-grid">
-                        <div class="field">
-                            <label for="edit-category-name">Назва категорії</label>
-                            <input id="edit-category-name" type="text" maxlength="80">
-                        </div>
-                        <div class="field">
-                            <label for="edit-category-description">Опис категорії</label>
-                            <textarea id="edit-category-description" maxlength="300" rows="3"></textarea>
-                        </div>
-                        <label class="toggle-control category-active-toggle" for="edit-category-active">
-                            <input id="edit-category-active" type="checkbox">
-                            <span>Активна категорія</span>
-                        </label>
-                    </div>
-                    <div class="category-edit-actions">
-                        <button id="save-category-button" class="button button-primary" type="submit">Зберегти</button>
-                        <button id="cancel-category-edit-button" class="button button-secondary" type="button">Скасувати</button>
-                    </div>
-                </form>
-            </div>
-            <div id="categories-list" class="cards-grid" aria-live="polite">
-                <p class="loading-card">Завантажуємо категорії...</p>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="section-heading section-heading-row">
+    <main class="app-shell">
+        <section id="gallery-view" class="app-view is-active" data-view="gallery">
+            <div class="gallery-hero">
                 <div>
-                    <p class="eyebrow">Шаблони</p>
-                    <h2>Шаблони мемів</h2>
+                    <p class="eyebrow">Memoid</p>
+                    <h1>Галерея мемів</h1>
+                    <p class="view-subtitle">Зберігайте власні меми, повертайтесь до улюблених і створюйте нові з шаблонів або власних фото.</p>
                 </div>
-                <div class="filter-control">
-                    <label for="template-category-filter">Категорія</label>
-                    <select id="template-category-filter">
+                <button id="create-meme-button" class="button button-primary" type="button">Створити мем</button>
+            </div>
+
+            <div class="gallery-toolbar" aria-label="Фільтри галереї">
+                <div class="field search-field">
+                    <label for="gallery-search-input">Пошук</label>
+                    <input id="gallery-search-input" type="search" placeholder="Пошук за назвою...">
+                </div>
+                <div class="field">
+                    <label for="gallery-category-filter">Категорія</label>
+                    <select id="gallery-category-filter">
                         <option value="">Усі категорії</option>
                     </select>
                 </div>
-            </div>
-            <form id="create-template-form" class="template-create-panel">
-                <div>
-                    <p class="eyebrow">Новий шаблон</p>
-                    <h3>Додати власний шаблон</h3>
-                    <p class="section-note">
-                        Завантажте зображення шаблона, вкажіть назву та категорію. Після збереження шаблон
-                        можна буде одразу обрати в редакторі.
-                    </p>
+                <div class="field">
+                    <label for="gallery-source-filter">Джерело</label>
+                    <select id="gallery-source-filter">
+                        <option value="">Усі</option>
+                        <option value="Template">Шаблони</option>
+                        <option value="Custom">Власні фото</option>
+                    </select>
                 </div>
-                <div class="template-form-grid">
-                    <div class="field">
-                        <label for="new-template-title">Назва шаблона</label>
-                        <input id="new-template-title" type="text" maxlength="120" placeholder="Наприклад: Кіт на дедлайні">
-                    </div>
-                    <div class="field">
-                        <label for="new-template-category">Категорія</label>
-                        <select id="new-template-category">
-                            <option value="">Оберіть категорію</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="new-template-file">Зображення шаблона</label>
-                        <input id="new-template-file" type="file" accept="image/jpeg,image/png,image/webp">
-                    </div>
-                    <div class="field template-submit-field">
-                        <button id="create-template-button" class="button button-primary" type="submit">Додати шаблон</button>
-                    </div>
-                </div>
-                <div id="template-form-status" class="status-message template-form-status" aria-live="polite">
-                    Оберіть файл, назву та категорію для нового шаблона.
-                </div>
-            </form>
-            <div id="templates-list" class="cards-grid" aria-live="polite">
-                <p class="loading-card">Завантажуємо шаблони...</p>
-            </div>
-        </section>
-
-        <section id="editor-section" class="section editor-section">
-            <div class="section-heading">
-                <p class="eyebrow">Canvas</p>
-                <h2>Редактор мема</h2>
-                <p class="section-note">
-                    Оберіть шаблон або завантажте власне зображення. Обробка зображення і тексту виконується
-                    у браузері через HTML5 Canvas. Завантаження зображень підключено через Web API.
-                </p>
-            </div>
-
-            <div class="editor-workspace">
-                <div class="canvas-panel">
-                    <div class="canvas-frame">
-                        <canvas id="meme-canvas" width="900" height="600" aria-label="Полотно редактора мема"></canvas>
-                        <p id="canvas-empty-state" class="canvas-empty-state">Оберіть шаблон або завантажте власне зображення.</p>
-                    </div>
-                    <div class="editor-actions">
-                        <button id="redraw-meme-button" class="button button-secondary" type="button">Перемалювати</button>
-                        <button id="download-meme-button" class="button button-secondary" type="button">Завантажити готовий мем</button>
-                        <button id="save-meme-button" class="button button-primary" type="button">Зберегти в галерею</button>
-                        <button id="clear-editor-button" class="button button-secondary" type="button">Очистити редактор</button>
-                    </div>
-                </div>
-
-                <aside class="editor-controls" aria-label="Налаштування редактора">
-                    <div class="field">
-                        <label for="editor-template-select">Шаблон</label>
-                        <select id="editor-template-select">
-                            <option value="">Не вибрано</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label for="custom-image-input">Власне зображення</label>
-                        <input id="custom-image-input" type="file" accept="image/jpeg,image/png,image/webp">
-                    </div>
-
-                    <div class="field">
-                        <label for="meme-title-input">Назва мема</label>
-                        <input id="meme-title-input" type="text" placeholder="Мій мем" value="Мій мем">
-                    </div>
-
-                    <div class="field">
-                        <label for="top-text-input">Верхній текст</label>
-                        <input id="top-text-input" type="text" placeholder="Верхній текст">
-                    </div>
-
-                    <div class="field">
-                        <label for="bottom-text-input">Нижній текст</label>
-                        <input id="bottom-text-input" type="text" placeholder="Нижній текст">
-                    </div>
-
-                    <div class="controls-grid">
-                        <div class="field">
-                            <label for="font-family-select">Шрифт</label>
-                            <select id="font-family-select">
-                                <option>Arial</option>
-                                <option>Impact</option>
-                                <option>Verdana</option>
-                                <option>Georgia</option>
-                                <option>Comic Sans MS</option>
-                            </select>
-                        </div>
-
-                        <div class="field">
-                            <label for="font-size-input">Розмір</label>
-                            <input id="font-size-input" type="range" min="20" max="96" value="48">
-                            <span id="font-size-value" class="range-value">48 px</span>
-                        </div>
-                    </div>
-
-                    <div class="controls-grid">
-                        <div class="field">
-                            <label for="text-color-input">Колір тексту</label>
-                            <input id="text-color-input" type="color" value="#ffffff">
-                        </div>
-
-                        <div class="field">
-                            <label for="text-position-select">Позиція тексту</label>
-                            <select id="text-position-select">
-                                <option value="TopAndBottom">Зверху і знизу</option>
-                                <option value="Top">Тільки зверху</option>
-                                <option value="Center">По центру</option>
-                                <option value="Bottom">Тільки знизу</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="field">
-                        <label for="image-effect-select">Ефект</label>
-                        <select id="image-effect-select">
-                            <option value="None">Без ефекту</option>
-                            <option value="Grayscale">Чорно-білий</option>
-                            <option value="Contrast">Контраст</option>
-                            <option value="Red">Червоний фільтр</option>
-                            <option value="Blur">Легке розмиття</option>
-                            <option value="Shakal">Шакалізація</option>
-                        </select>
-                    </div>
-
-                    <div class="field">
-                        <label for="image-fit-select">Кадрування</label>
-                        <select id="image-fit-select">
-                            <option value="Original">Оригінальні пропорції</option>
-                            <option value="Contain">Вписати повністю</option>
-                            <option value="Cover">Заповнити полотно</option>
-                            <option value="Square">Квадратний мем</option>
-                        </select>
-                    </div>
-
-                    <div id="editor-status" class="editor-status status-message" aria-live="polite">
-                        Редактор готовий. Оберіть шаблон або завантажте фото.
-                    </div>
-                </aside>
-            </div>
-        </section>
-
-        <section class="section">
-            <div class="section-heading section-heading-row">
-                <div>
-                    <p class="eyebrow">Галерея</p>
-                    <h2>Галерея створених мемів</h2>
-                </div>
-                <label class="toggle-control" for="favorites-only">
+                <label class="toggle-control toolbar-toggle" for="favorites-only">
                     <input id="favorites-only" type="checkbox">
                     <span>Лише улюблені</span>
                 </label>
             </div>
+
             <p id="gallery-status" class="status-message gallery-status" aria-live="polite">
-                Галерея готова до завантаження.
+                Завантажуємо галерею...
             </p>
-            <div id="generated-memes-list" class="cards-grid" aria-live="polite">
-                <p class="loading-card">Завантажуємо галерею...</p>
+
+            <div id="generated-memes-list" class="gallery-grid" aria-live="polite">
+                <p class="loading-card">Завантажуємо меми...</p>
             </div>
+
+            <div class="load-more-row">
+                <button id="load-more-gallery-button" class="button button-secondary" type="button">Завантажити ще</button>
+                <p id="gallery-load-more-note" class="load-more-note" aria-live="polite"></p>
+            </div>
+        </section>
+
+        <section id="create-view" class="app-view" data-view="create">
+            <div class="view-heading">
+                <button class="button button-secondary compact-button" type="button" data-view-target="gallery">Назад до галереї</button>
+                <div>
+                    <p class="eyebrow">Новий мем</p>
+                    <h2>Створити мем</h2>
+                    <p class="view-subtitle">Оберіть готовий шаблон або завантажте власне зображення. Після вибору редактор відкриється автоматично.</p>
+                </div>
+            </div>
+
+            <div class="source-layout">
+                <section class="source-panel">
+                    <div class="section-heading section-heading-row">
+                        <div>
+                            <h3>Обрати шаблон</h3>
+                            <p class="section-note">Використайте один із доступних шаблонів як основу для нового мема.</p>
+                        </div>
+                        <div class="filter-control">
+                            <label for="template-category-filter">Категорія</label>
+                            <select id="template-category-filter">
+                                <option value="">Усі категорії</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="templates-list" class="template-picker-grid" aria-live="polite">
+                        <p class="loading-card">Завантажуємо шаблони...</p>
+                    </div>
+                </section>
+
+                <aside class="source-panel upload-source-panel">
+                    <h3>Завантажити власне фото</h3>
+                    <p class="section-note">JPG, PNG або WEBP до 5 МБ. Фото відкриється у редакторі після завантаження.</p>
+                    <div class="field">
+                        <label for="custom-image-input">Власне зображення</label>
+                        <input id="custom-image-input" type="file" accept="image/jpeg,image/png,image/webp">
+                    </div>
+                </aside>
+            </div>
+
+            <details id="management-panel" class="management-panel">
+                <summary>Керування категоріями та шаблонами</summary>
+                <div class="management-content">
+                    <section id="categories" class="management-section">
+                        <div class="section-heading">
+                            <p class="eyebrow">Категорії</p>
+                            <h3>Групування шаблонів</h3>
+                            <p class="section-note">Категорії допомагають впорядковувати шаблони та фільтрувати галерею.</p>
+                        </div>
+
+                        <div class="category-management-panel">
+                            <form id="create-category-form" class="category-form">
+                                <div class="category-form-grid">
+                                    <div class="field">
+                                        <label for="new-category-name">Назва категорії</label>
+                                        <input id="new-category-name" type="text" maxlength="80" placeholder="Наприклад: Програмування">
+                                    </div>
+                                    <div class="field">
+                                        <label for="new-category-description">Опис категорії</label>
+                                        <textarea id="new-category-description" maxlength="300" rows="3" placeholder="Короткий опис категорії"></textarea>
+                                    </div>
+                                    <div class="field category-submit-field">
+                                        <button id="create-category-button" class="button button-primary" type="submit">Додати категорію</button>
+                                    </div>
+                                </div>
+                                <div id="category-form-status" class="status-message category-form-status" aria-live="polite">
+                                    Створіть нову категорію для шаблонів.
+                                </div>
+                            </form>
+
+                            <form id="edit-category-form" class="category-form category-edit-panel" hidden>
+                                <input id="edit-category-id" type="hidden">
+                                <h3>Редагувати категорію</h3>
+                                <div class="category-form-grid">
+                                    <div class="field">
+                                        <label for="edit-category-name">Назва категорії</label>
+                                        <input id="edit-category-name" type="text" maxlength="80">
+                                    </div>
+                                    <div class="field">
+                                        <label for="edit-category-description">Опис категорії</label>
+                                        <textarea id="edit-category-description" maxlength="300" rows="3"></textarea>
+                                    </div>
+                                    <label class="toggle-control category-active-toggle" for="edit-category-active">
+                                        <input id="edit-category-active" type="checkbox">
+                                        <span>Активна категорія</span>
+                                    </label>
+                                </div>
+                                <div class="category-edit-actions">
+                                    <button id="save-category-button" class="button button-primary" type="submit">Зберегти</button>
+                                    <button id="cancel-category-edit-button" class="button button-secondary" type="button">Скасувати</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div id="categories-list" class="admin-grid" aria-live="polite">
+                            <p class="loading-card">Завантажуємо категорії...</p>
+                        </div>
+                    </section>
+
+                    <section class="management-section">
+                        <div class="section-heading">
+                            <p class="eyebrow">Шаблони</p>
+                            <h3>Додати власний шаблон</h3>
+                            <p class="section-note">Завантажте зображення шаблона, вкажіть назву та категорію. Потім його можна одразу обрати для редактора.</p>
+                        </div>
+                        <form id="create-template-form" class="template-create-panel">
+                            <div class="template-form-grid">
+                                <div class="field">
+                                    <label for="new-template-title">Назва шаблона</label>
+                                    <input id="new-template-title" type="text" maxlength="120" placeholder="Наприклад: Кіт на дедлайні">
+                                </div>
+                                <div class="field">
+                                    <label for="new-template-category">Категорія</label>
+                                    <select id="new-template-category">
+                                        <option value="">Оберіть категорію</option>
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="new-template-file">Зображення шаблона</label>
+                                    <input id="new-template-file" type="file" accept="image/jpeg,image/png,image/webp">
+                                </div>
+                                <div class="field template-submit-field">
+                                    <button id="create-template-button" class="button button-primary" type="submit">Додати шаблон</button>
+                                </div>
+                            </div>
+                            <div id="template-form-status" class="status-message template-form-status" aria-live="polite">
+                                Оберіть файл, назву та категорію для нового шаблона.
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            </details>
+        </section>
+
+        <section id="editor-view" class="app-view" data-view="editor">
+            <section id="editor-section" class="editor-section">
+                <div class="view-heading">
+                    <button id="cancel-editor-button" class="button button-secondary compact-button" type="button">Скасувати створення</button>
+                    <div>
+                        <p class="eyebrow">Canvas</p>
+                        <h2>Редактор мема</h2>
+                        <p class="view-subtitle">Налаштуйте текст, ефекти та кадрування. Обробка виконується прямо в браузері.</p>
+                    </div>
+                </div>
+
+                <div class="editor-workspace">
+                    <div class="canvas-panel">
+                        <div class="canvas-frame">
+                            <canvas id="meme-canvas" width="900" height="600" aria-label="Полотно редактора мема"></canvas>
+                            <p id="canvas-empty-state" class="canvas-empty-state">Оберіть шаблон або завантажте власне зображення.</p>
+                        </div>
+                        <div class="editor-actions">
+                            <button id="save-meme-button" class="button button-primary" type="button">Зберегти в галерею</button>
+                            <button id="download-meme-button" class="button button-secondary" type="button">Завантажити</button>
+                            <button id="redraw-meme-button" class="button button-secondary" type="button">Перемалювати</button>
+                            <button id="clear-editor-button" class="button button-secondary" type="button">Очистити</button>
+                        </div>
+                    </div>
+
+                    <aside class="editor-controls" aria-label="Налаштування редактора">
+                        <p id="editor-source-label" class="source-label">Джерело не вибрано</p>
+
+                        <div class="field">
+                            <label for="editor-template-select">Шаблон</label>
+                            <select id="editor-template-select">
+                                <option value="">Не вибрано</option>
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label for="meme-title-input">Назва мема</label>
+                            <input id="meme-title-input" type="text" placeholder="Мій мем" value="Мій мем">
+                        </div>
+
+                        <div class="field">
+                            <label for="top-text-input">Верхній текст</label>
+                            <input id="top-text-input" type="text" placeholder="Верхній текст">
+                        </div>
+
+                        <div class="field">
+                            <label for="bottom-text-input">Нижній текст</label>
+                            <input id="bottom-text-input" type="text" placeholder="Нижній текст">
+                        </div>
+
+                        <div class="controls-grid">
+                            <div class="field">
+                                <label for="font-family-select">Шрифт</label>
+                                <select id="font-family-select">
+                                    <option>Arial</option>
+                                    <option>Impact</option>
+                                    <option>Verdana</option>
+                                    <option>Georgia</option>
+                                    <option>Comic Sans MS</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label for="font-size-input">Розмір</label>
+                                <input id="font-size-input" type="range" min="20" max="96" value="48">
+                                <span id="font-size-value" class="range-value">48 px</span>
+                            </div>
+                        </div>
+
+                        <div class="controls-grid">
+                            <div class="field">
+                                <label for="text-color-input">Колір тексту</label>
+                                <input id="text-color-input" type="color" value="#ffffff">
+                            </div>
+
+                            <div class="field">
+                                <label for="text-position-select">Позиція тексту</label>
+                                <select id="text-position-select">
+                                    <option value="TopAndBottom">Зверху і знизу</option>
+                                    <option value="Top">Тільки зверху</option>
+                                    <option value="Center">По центру</option>
+                                    <option value="Bottom">Тільки знизу</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="controls-grid">
+                            <div class="field">
+                                <label for="image-effect-select">Ефект</label>
+                                <select id="image-effect-select">
+                                    <option value="None">Без ефекту</option>
+                                    <option value="Grayscale">Чорно-білий</option>
+                                    <option value="Contrast">Контраст</option>
+                                    <option value="Red">Червоний фільтр</option>
+                                    <option value="Blur">Легке розмиття</option>
+                                    <option value="Shakal">Шакалізація</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label for="image-fit-select">Кадрування</label>
+                                <select id="image-fit-select">
+                                    <option value="Original">Оригінальні пропорції</option>
+                                    <option value="Contain">Вписати повністю</option>
+                                    <option value="Cover">Заповнити полотно</option>
+                                    <option value="Square">Квадратний мем</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="editor-status" class="editor-status status-message" aria-live="polite">
+                            Редактор готовий. Оберіть шаблон або завантажте фото.
+                        </div>
+                    </aside>
+                </div>
+            </section>
         </section>
     </main>
 
@@ -316,6 +340,8 @@
             </div>
         </div>
     </div>
+
+    <button id="back-to-top-button" class="back-to-top-button" type="button" aria-label="Повернутися нагору">↑</button>
 
     <script src="js/app.js"></script>
 </body>
