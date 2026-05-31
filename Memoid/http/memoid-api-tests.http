@@ -219,5 +219,5 @@ Content-Type: application/json
 PATCH {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}/favorite
 
 ### Generated memes: delete metadata record
-DELETE {{baseUrl}}/api/generated-memes/{{createdGeneratedMemeId}}
+DELETE {{baseUrl}}/api/generated-memes/15
 

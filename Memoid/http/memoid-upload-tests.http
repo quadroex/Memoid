@@ -11,7 +11,7 @@ Content-Type: multipart/form-data; boundary=----MemoidBoundary
 Content-Disposition: form-data; name="file"; filename="sample.png"
 Content-Type: image/png
 
-< ./sample.png
+< ./1.png
 ------MemoidBoundary--
 
 ### Upload custom source image
@@ -22,7 +22,7 @@ Content-Type: multipart/form-data; boundary=----MemoidBoundary
 Content-Disposition: form-data; name="file"; filename="sample.png"
 Content-Type: image/png
 
-< ./sample.png
+< ./1.png
 ------MemoidBoundary--
 
 ### Upload generated meme image
@@ -33,7 +33,7 @@ Content-Type: multipart/form-data; boundary=----MemoidBoundary
 Content-Disposition: form-data; name="file"; filename="sample.png"
 Content-Type: image/png
 
-< ./sample.png
+< ./1.png
 ------MemoidBoundary--
 
 ### Upload invalid content type negative test
