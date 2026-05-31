@@ -6,7 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Memoid.Controllers;
 
+/// <summary>
+/// API для галереї мемів.
+/// </summary>
 [ApiController]
+[Tags("Generated Memes")]
 [Route("api/generated-memes")]
 public class GeneratedMemesController : ControllerBase
 {
@@ -24,6 +28,13 @@ public class GeneratedMemesController : ControllerBase
         _context = context;
     }
 
+    /// <summary>
+    /// Повертає всі створені меми.
+    /// </summary>
+    /// <param name="favoritesOnly">Якщо true, повертає тільки улюблені меми.</param>
+    /// <param name="templateId">Фільтр за шаблономм, за яким створено мем.</param>
+    /// <returns>Список мемів.</returns>
+    [ProducesResponseType(typeof(IEnumerable<GeneratedMemeDto>), StatusCodes.Status200OK)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<GeneratedMemeDto>>> GetGeneratedMemes(
         bool favoritesOnly = false,
@@ -49,6 +60,13 @@ public class GeneratedMemesController : ControllerBase
         return Ok(memes);
     }
 
+    /// <summary>
+    /// Повертає створений мем за id.
+    /// </summary>
+    /// <param name="id">Id мема.</param>
+    /// <returns>Дані мема.</returns>
+    [ProducesResponseType(typeof(GeneratedMemeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<GeneratedMemeDto>> GetGeneratedMeme(int id)
     {
@@ -66,6 +84,13 @@ public class GeneratedMemesController : ControllerBase
         return Ok(meme);
     }
 
+    /// <summary>
+    /// Створює запис для готового мема.
+    /// </summary>
+    /// <param name="request">Метадані створеного мема та шлях до зображення.</param>
+    /// <returns>Створений мем.</returns>
+    [ProducesResponseType(typeof(GeneratedMemeDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [HttpPost]
     public async Task<ActionResult<GeneratedMemeDto>> CreateGeneratedMeme(CreateGeneratedMemeDto request)
     {
@@ -102,6 +127,14 @@ public class GeneratedMemesController : ControllerBase
         return CreatedAtAction(nameof(GetGeneratedMeme), new { id = meme.Id }, dto);
     }
 
+    /// <summary>
+    /// Оновлює назву мема та статус улюбленого.
+    /// </summary>
+    /// <param name="id">Id мема.</param>
+    /// <param name="request">Оновлений мем.</param>
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateGeneratedMeme(int id, UpdateGeneratedMemeDto request)
     {
@@ -126,6 +159,13 @@ public class GeneratedMemesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Перемикає статус улюбленого.
+    /// </summary>
+    /// <param name="id">Id мема.</param>
+    /// <returns>Оновлений мем.</returns>
+    [ProducesResponseType(typeof(GeneratedMemeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpPatch("{id:int}/favorite")]
     public async Task<ActionResult<GeneratedMemeDto>> ToggleFavorite(int id)
     {
@@ -143,6 +183,12 @@ public class GeneratedMemesController : ControllerBase
         return Ok(dto);
     }
 
+    /// <summary>
+    /// Видаляє мем.
+    /// </summary>
+    /// <param name="id">Id мема.</param>
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteGeneratedMeme(int id)
     {

@@ -6,7 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Memoid.Controllers;
 
+/// <summary>
+/// API для шаблонів.
+/// </summary>
 [ApiController]
+[Tags("Meme Templates")]
 [Route("api/meme-templates")]
 public class MemeTemplatesController : ControllerBase
 {
@@ -19,6 +23,13 @@ public class MemeTemplatesController : ControllerBase
         _context = context;
     }
 
+    /// <summary>
+    /// Повертає шаблони мемів з optional фільтром за категорією.
+    /// </summary>
+    /// <param name="categoryId">id категорії для фільтрації.</param>
+    /// <param name="includeInactive">якщо true, додає неактивні шаблони.</param>
+    /// <returns>шаблони із назвою категорії та кількістю мемів.</returns>
+    [ProducesResponseType(typeof(IEnumerable<MemeTemplateDto>), StatusCodes.Status200OK)]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<MemeTemplateDto>>> GetTemplates(
         int? categoryId = null,
@@ -47,6 +58,13 @@ public class MemeTemplatesController : ControllerBase
         return Ok(templates);
     }
 
+    /// <summary>
+    /// Повертає один шаблон за id.
+    /// </summary>
+    /// <param name="id">Id шаблона.</param>
+    /// <returns>Дані шаблона.</returns>
+    [ProducesResponseType(typeof(MemeTemplateDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<MemeTemplateDto>> GetTemplate(int id)
     {
@@ -67,6 +85,13 @@ public class MemeTemplatesController : ControllerBase
         return Ok(template);
     }
 
+    /// <summary>
+    /// Створює новий шаблон на основі зображення.
+    /// </summary>
+    /// <param name="request">Назва, шлях до зображення та категорія шаблона.</param>
+    /// <returns>Створений шаблон.</returns>
+    [ProducesResponseType(typeof(MemeTemplateDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [HttpPost]
     public async Task<ActionResult<MemeTemplateDto>> CreateTemplate(CreateMemeTemplateDto request)
     {
@@ -104,6 +129,14 @@ public class MemeTemplatesController : ControllerBase
         return CreatedAtAction(nameof(GetTemplate), new { id = template.Id }, dto);
     }
 
+    /// <summary>
+    /// Оновлює назву, шлях до зображення, категорію та статус шаблона.
+    /// </summary>
+    /// <param name="id">Id шаблона.</param>
+    /// <param name="request">Нові дані шаблона.</param>
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> UpdateTemplate(int id, UpdateMemeTemplateDto request)
     {
@@ -142,6 +175,12 @@ public class MemeTemplatesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Видаляє шаблон або деактивує його, якщо з ним вже створено меми.
+    /// </summary>
+    /// <param name="id">Id шаблона.</param>
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteTemplate(int id)
     {

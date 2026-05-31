@@ -3,7 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Memoid.Controllers;
 
+/// <summary>
+/// API для безпечного завантаження у wwwroot/uploads.
+/// </summary>
 [ApiController]
+[Tags("Uploads")]
 [Route("api/uploads")]
 public class UploadsController : ControllerBase
 {
@@ -31,18 +35,45 @@ public class UploadsController : ControllerBase
         _environment = environment;
     }
 
+    /// <summary>
+    /// Завантажує шаблон мема.
+    /// </summary>
+    /// <param name="file">Файл JPG, PNG або WEBP розміром до 5 МБ.</param>
+    /// <returns>Метадані файлу та шлях.</returns>
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(UploadedFileDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost("templates")]
     public Task<ActionResult<UploadedFileDto>> UploadTemplateImage(IFormFile? file)
     {
         return UploadToFolderAsync(file, "templates");
     }
 
+    /// <summary>
+    /// Завантажує зображення користувача.
+    /// </summary>
+    /// <param name="file">Файл JPG, PNG або WEBP розміром до 5 МБ.</param>
+    /// <returns>Метадані файлу та шлях.</returns>
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(UploadedFileDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost("custom")]
     public Task<ActionResult<UploadedFileDto>> UploadCustomImage(IFormFile? file)
     {
         return UploadToFolderAsync(file, "custom");
     }
 
+    /// <summary>
+    /// Завантажує зображення створеного мема.
+    /// </summary>
+    /// <param name="file">Файл JPG, PNG або WEBP розміром до 5 МБ.</param>
+    /// <returns>Метадані файлу та шлях.</returns>
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(UploadedFileDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost("generated")]
     public Task<ActionResult<UploadedFileDto>> UploadGeneratedImage(IFormFile? file)
     {
