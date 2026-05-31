@@ -15,7 +15,6 @@
         <nav class="app-nav" aria-label="Головна навігація">
             <button class="nav-button is-active" type="button" data-view-target="gallery">Галерея</button>
             <button class="nav-button" type="button" data-view-target="create">Створити мем</button>
-            <button class="nav-button" type="button" data-view-target="create" data-open-management="true">Шаблони</button>
         </nav>
     </header>
 
@@ -73,7 +72,7 @@
             <div class="view-heading">
                 <button class="button button-secondary compact-button" type="button" data-view-target="gallery">Назад до галереї</button>
                 <div>
-                    <p class="eyebrow">Новий мем</p>
+                    <p class="eyebrow">Memoid</p>
                     <h2>Створити мем</h2>
                     <p class="view-subtitle">Оберіть готовий шаблон або завантажте власне зображення. Після вибору редактор відкриється автоматично.</p>
                 </div>
@@ -96,6 +95,7 @@
                     <div id="templates-list" class="template-picker-grid" aria-live="polite">
                         <p class="loading-card">Завантажуємо шаблони...</p>
                     </div>
+                    <p id="create-status" class="status-message create-status" aria-live="polite"></p>
                 </section>
 
                 <aside class="source-panel upload-source-panel">
@@ -109,11 +109,12 @@
             </div>
 
             <details id="management-panel" class="management-panel">
-                <summary>Керування категоріями та шаблонами</summary>
+                <summary>Службове керування категоріями та шаблонами</summary>
                 <div class="management-content">
+                    <p class="management-note">Цей блок потрібен для наповнення навчального проєкту шаблонами.</p>
                     <section id="categories" class="management-section">
                         <div class="section-heading">
-                            <p class="eyebrow">Категорії</p>
+                            <p class="eyebrow">Memoid</p>
                             <h3>Групування шаблонів</h3>
                             <p class="section-note">Категорії допомагають впорядковувати шаблони та фільтрувати галерею.</p>
                         </div>
@@ -169,7 +170,7 @@
 
                     <section class="management-section">
                         <div class="section-heading">
-                            <p class="eyebrow">Шаблони</p>
+                            <p class="eyebrow">Memoid</p>
                             <h3>Додати власний шаблон</h3>
                             <p class="section-note">Завантажте зображення шаблона, вкажіть назву та категорію. Потім його можна одразу обрати для редактора.</p>
                         </div>
@@ -205,9 +206,8 @@
         <section id="editor-view" class="app-view" data-view="editor">
             <section id="editor-section" class="editor-section">
                 <div class="view-heading">
-                    <button id="cancel-editor-button" class="button button-secondary compact-button" type="button">Скасувати створення</button>
                     <div>
-                        <p class="eyebrow">Canvas</p>
+                        <p class="eyebrow">Memoid</p>
                         <h2>Редактор мема</h2>
                         <p class="view-subtitle">Налаштуйте текст, ефекти та кадрування. Обробка виконується прямо в браузері.</p>
                     </div>
@@ -221,9 +221,8 @@
                         </div>
                         <div class="editor-actions">
                             <button id="save-meme-button" class="button button-primary" type="button">Зберегти в галерею</button>
-                            <button id="download-meme-button" class="button button-secondary" type="button">Завантажити</button>
-                            <button id="redraw-meme-button" class="button button-secondary" type="button">Перемалювати</button>
-                            <button id="clear-editor-button" class="button button-secondary" type="button">Очистити</button>
+                            <button id="clear-editor-button" class="button button-secondary" type="button">Скинути зміни</button>
+                            <button id="cancel-editor-button" class="button button-secondary" type="button">Скасувати створення</button>
                         </div>
                     </div>
 
@@ -231,24 +230,17 @@
                         <p id="editor-source-label" class="source-label">Джерело не вибрано</p>
 
                         <div class="field">
-                            <label for="editor-template-select">Шаблон</label>
-                            <select id="editor-template-select">
-                                <option value="">Не вибрано</option>
-                            </select>
-                        </div>
-
-                        <div class="field">
                             <label for="meme-title-input">Назва мема</label>
-                            <input id="meme-title-input" type="text" placeholder="Мій мем" value="Мій мем">
+                            <input id="meme-title-input" type="text" maxlength="20" placeholder="Назва мема">
                         </div>
 
                         <div class="field">
-                            <label for="top-text-input">Верхній текст</label>
+                            <label id="top-text-label" for="top-text-input">Верхній текст</label>
                             <input id="top-text-input" type="text" placeholder="Верхній текст">
                         </div>
 
                         <div class="field">
-                            <label for="bottom-text-input">Нижній текст</label>
+                            <label id="bottom-text-label" for="bottom-text-input">Нижній текст</label>
                             <input id="bottom-text-input" type="text" placeholder="Нижній текст">
                         </div>
 

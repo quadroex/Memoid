@@ -14,6 +14,8 @@ public class GeneratedMemesController : ControllerBase
     private const string SourceTypeCustom = "Custom";
     private const string GeneratedImagePathPrefix = "/uploads/generated/";
     private const string CustomImagePathPrefix = "/uploads/custom/";
+    private const int GeneratedMemeTitleMinLength = 3;
+    private const int GeneratedMemeTitleMaxLength = 20;
 
     private readonly MemoidDbContext _context;
 
@@ -109,15 +111,11 @@ public class GeneratedMemesController : ControllerBase
             return NotFound("Створений мем не знайдено.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Title))
-        {
-            return BadRequest("Назва мема не може бути порожньою.");
-        }
-
         var title = NormalizeRequiredText(request.Title);
-        if (title.Length > 120)
+        var titleValidationError = ValidateGeneratedMemeTitle(title);
+        if (titleValidationError is not null)
         {
-            return BadRequest("Назва мема не може бути довшою за 120 символів.");
+            return BadRequest(titleValidationError);
         }
 
         meme.Title = title;
@@ -171,14 +169,11 @@ public class GeneratedMemesController : ControllerBase
 
     private async Task<string?> ValidateGeneratedMemeAsync(CreateGeneratedMemeDto request)
     {
-        if (string.IsNullOrWhiteSpace(request.Title))
+        var title = NormalizeRequiredText(request.Title);
+        var titleValidationError = ValidateGeneratedMemeTitle(title);
+        if (titleValidationError is not null)
         {
-            return "Назва мема не може бути порожньою.";
-        }
-
-        if (NormalizeRequiredText(request.Title).Length > 120)
-        {
-            return "Назва мема не може бути довшою за 120 символів.";
+            return titleValidationError;
         }
 
         if (string.IsNullOrWhiteSpace(request.ImagePath))
@@ -349,5 +344,20 @@ public class GeneratedMemesController : ControllerBase
     {
         var normalized = value?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
+    }
+
+    private static string? ValidateGeneratedMemeTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return "Вкажіть назву мема.";
+        }
+
+        if (title.Length is < GeneratedMemeTitleMinLength or > GeneratedMemeTitleMaxLength)
+        {
+            return "Назва мема має містити від 3 до 20 символів.";
+        }
+
+        return null;
     }
 }

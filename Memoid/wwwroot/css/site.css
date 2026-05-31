@@ -526,7 +526,10 @@ input[type="color"] {
 }
 
 .gallery-card .card-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
 }
 
 .card-actions .button {
@@ -538,6 +541,26 @@ input[type="color"] {
 
 .favorite-icon-button {
     font-size: 1.05rem;
+}
+
+.icon-action-button {
+    width: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    border-radius: 10px;
+    font-size: 1.08rem;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.gallery-card .button-danger.icon-action-button {
+    margin-left: auto;
+    opacity: 0.82;
+}
+
+.gallery-card .button-danger.icon-action-button:hover {
+    opacity: 1;
 }
 
 .empty-state,
@@ -590,6 +613,7 @@ input[type="color"] {
 .management-panel {
     margin-top: var(--space-lg);
     overflow: hidden;
+    opacity: 0.92;
 }
 
 .management-panel summary {
@@ -603,6 +627,12 @@ input[type="color"] {
     display: grid;
     gap: var(--space-lg);
     padding: 0 20px 20px;
+}
+
+.management-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.92rem;
 }
 
 .category-management-panel,
@@ -642,6 +672,15 @@ input[type="color"] {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-sm);
+}
+
+.create-status:empty,
+.status-message.is-hidden {
+    display: none;
+}
+
+.text-field-hidden {
+    display: none;
 }
 
 .section-heading {

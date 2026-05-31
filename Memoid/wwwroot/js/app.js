@@ -197,29 +197,14 @@ function bindBackToTopButton() {
 }
 
 function bindEditorControls() {
-    const templateSelect = document.getElementById("editor-template-select");
     const customImageInput = document.getElementById("custom-image-input");
-    const redrawButton = document.getElementById("redraw-meme-button");
-    const downloadButton = document.getElementById("download-meme-button");
     const saveButton = document.getElementById("save-meme-button");
     const clearButton = document.getElementById("clear-editor-button");
     const cancelButton = document.getElementById("cancel-editor-button");
     const fontSizeInput = document.getElementById("font-size-input");
 
-    if (templateSelect) {
-        templateSelect.addEventListener("change", handleTemplateSelection);
-    }
-
     if (customImageInput) {
         customImageInput.addEventListener("change", handleCustomImageSelection);
-    }
-
-    if (redrawButton) {
-        redrawButton.addEventListener("click", renderCanvas);
-    }
-
-    if (downloadButton) {
-        downloadButton.addEventListener("click", downloadCanvasMeme);
     }
 
     if (saveButton) {
@@ -252,12 +237,21 @@ function bindEditorControls() {
     ].forEach((id) => {
         const element = document.getElementById(id);
         if (element) {
-            element.addEventListener("input", renderCanvas);
-            element.addEventListener("change", renderCanvas);
+            const rerender = () => {
+                if (id === "text-position-select") {
+                    updateTextPositionControls();
+                }
+
+                renderCanvas();
+            };
+
+            element.addEventListener("input", rerender);
+            element.addEventListener("change", rerender);
         }
     });
 
     updateFontSizeLabel();
+    updateTextPositionControls();
     clearCanvas();
     updateEditorActionButtons();
 }
@@ -361,7 +355,6 @@ async function loadTemplates(categoryId = null) {
 
         if (!categoryId) {
             cachedTemplates = safeTemplates;
-            renderEditorTemplateSelect(cachedTemplates);
             applyGalleryFilters();
         }
 
@@ -540,35 +533,6 @@ function renderNewTemplateCategorySelect(categories) {
     if (!hasCategories) {
         setTemplateFormStatus("error", "Спочатку потрібно створити активну категорію.");
     }
-}
-
-function renderEditorTemplateSelect(templates) {
-    const select = document.getElementById("editor-template-select");
-
-    if (!select) {
-        return;
-    }
-
-    const currentValue = select.value;
-    clearElement(select);
-
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Не вибрано";
-    select.append(emptyOption);
-
-    templates.forEach((template) => {
-        const option = document.createElement("option");
-        option.value = String(template.id);
-        option.textContent = template.categoryName
-            ? `${template.title} (${template.categoryName})`
-            : template.title;
-        select.append(option);
-    });
-
-    select.value = Array.from(select.options).some((option) => option.value === currentValue)
-        ? currentValue
-        : "";
 }
 
 function renderTemplates(templates) {
@@ -761,22 +725,28 @@ function createGeneratedMemeActions(meme) {
     const actions = document.createElement("div");
     actions.className = "card-actions";
 
-    const previewButton = createActionButton("Переглянути", "button-secondary");
+    const previewButton = createActionButton("👁", "button-secondary icon-action-button");
+    previewButton.title = "Відкрити";
+    previewButton.setAttribute("aria-label", "Відкрити мем");
     previewButton.addEventListener("click", () => openMemePreview(meme));
 
-    const downloadButton = createActionButton("Завантажити", "button-secondary");
+    const downloadButton = createActionButton("⬇", "button-secondary icon-action-button");
+    downloadButton.title = "Завантажити";
+    downloadButton.setAttribute("aria-label", "Завантажити мем");
     downloadButton.addEventListener("click", () => downloadGeneratedMeme(meme));
 
     const favoriteButton = createActionButton(
-        meme.isFavorite ? "★" : "♡",
-        meme.isFavorite ? "button-favorite-active" : "button-secondary"
+        meme.isFavorite ? "★" : "☆",
+        meme.isFavorite ? "button-favorite-active icon-action-button" : "button-secondary icon-action-button"
     );
     favoriteButton.classList.add("favorite-icon-button");
-    favoriteButton.title = meme.isFavorite ? "Прибрати з улюблених" : "В улюблені";
+    favoriteButton.title = meme.isFavorite ? "Прибрати з улюблених" : "Додати в улюблені";
     favoriteButton.setAttribute("aria-label", favoriteButton.title);
     favoriteButton.addEventListener("click", () => toggleGeneratedMemeFavorite(meme.id, favoriteButton));
 
-    const deleteButton = createActionButton("Видалити", "button-danger");
+    const deleteButton = createActionButton("🗑", "button-danger icon-action-button");
+    deleteButton.title = "Видалити";
+    deleteButton.setAttribute("aria-label", "Видалити мем");
     deleteButton.addEventListener("click", () => deleteGeneratedMeme(meme.id, deleteButton));
 
     actions.append(previewButton, downloadButton, favoriteButton, deleteButton);
@@ -800,31 +770,34 @@ function createOptionalText(label, value) {
     return createTextElement("p", `${label}: ${normalized}`);
 }
 
-async function handleTemplateSelection(event) {
-    const templateId = Number(event.target.value);
+async function loadTemplateIntoEditor(templateId) {
+    const normalizedTemplateId = Number(templateId);
 
-    if (!templateId) {
+    if (!normalizedTemplateId) {
         resetEditorSource();
         clearCanvas();
         setEditorStatus("Оберіть шаблон або завантажте власне зображення.", "info");
         return;
     }
 
-    const template = cachedTemplates.find((item) => item.id === templateId);
+    const template = cachedTemplates.find((item) => item.id === normalizedTemplateId);
     if (!template) {
-        setEditorStatus("Шаблон не знайдено в завантаженому списку.", "error");
+        setCreateStatus("error", "Шаблон не знайдено в завантаженому списку.");
         return;
     }
 
     try {
+        setCreateStatus("loading", "Завантажуємо шаблон у редактор...");
         const image = await loadImage(template.imagePath);
         currentImage = image;
         currentSourceType = "Template";
         currentTemplateId = template.id;
         currentOriginalImagePath = null;
         clearCustomFileInput();
+        resetEditorModifications(false);
         updateEditorSourceLabel(template.title || "шаблон");
         openEditorView();
+        setCreateStatus("", "");
         setEditorStatus("Шаблон завантажено в редактор.", "success");
         renderCanvas();
         updateEditorActionButtons();
@@ -832,7 +805,7 @@ async function handleTemplateSelection(event) {
         console.error("Failed to load template image", error);
         resetEditorSource();
         clearCanvas();
-        setEditorStatus("Файл шаблона не знайдено. Завантажте реальне зображення шаблона або використайте власне фото.", "error");
+        setCreateStatus("error", "Файл шаблона не знайдено. Оберіть інший шаблон або завантажте власне фото.");
     }
 }
 
@@ -845,13 +818,13 @@ async function handleCustomImageSelection(event) {
 
     const validationError = validateClientImage(file);
     if (validationError) {
-        setEditorStatus(validationError, "error");
+        setCreateStatus("error", validationError);
         event.target.value = "";
         return;
     }
 
     try {
-        setEditorStatus("Завантажуємо власне зображення...", "info");
+        setCreateStatus("loading", "Завантажуємо власне зображення...");
         const uploaded = await uploadFile(`${API_BASE}/uploads/custom`, file);
         const image = await loadImage(uploaded.relativePath);
 
@@ -860,28 +833,25 @@ async function handleCustomImageSelection(event) {
         currentTemplateId = null;
         currentOriginalImagePath = uploaded.relativePath;
 
-        const templateSelect = document.getElementById("editor-template-select");
-        if (templateSelect) {
-            templateSelect.value = "";
-        }
-
+        resetEditorModifications(false);
         updateEditorSourceLabel("власне фото");
         openEditorView();
+        setCreateStatus("", "");
         setEditorStatus("Власне зображення завантажено в редактор.", "success");
         renderCanvas();
         updateEditorActionButtons();
     } catch (error) {
         console.error("Failed to upload custom image", error);
-        setEditorStatus("Не вдалося завантажити зображення.", "error");
+        setCreateStatus("error", "Не вдалося завантажити зображення.");
     }
 }
 
 function clearEditor() {
-    resetEditorSource();
-    clearCanvas();
-    clearCustomFileInput();
-    setElementValue("editor-template-select", "");
-    setElementValue("meme-title-input", "Мій мем");
+    resetEditorModifications(true);
+}
+
+function resetEditorModifications(showStatus = true) {
+    setElementValue("meme-title-input", "");
     setElementValue("top-text-input", "");
     setElementValue("bottom-text-input", "");
     setElementValue("font-family-select", "Arial");
@@ -891,6 +861,34 @@ function clearEditor() {
     setElementValue("image-effect-select", "None");
     setElementValue("image-fit-select", "Original");
     updateFontSizeLabel();
+    updateTextPositionControls();
+    renderCanvas();
+    updateEditorActionButtons();
+
+    if (showStatus) {
+        if (currentImage) {
+            setEditorStatus("Зміни скинуто. Зображення залишилось у редакторі.", "info");
+        } else {
+            setEditorStatus("Спочатку оберіть шаблон або завантажте фото.", "error");
+        }
+    }
+}
+
+function resetEditorCompletely() {
+    resetEditorSource();
+    clearCanvas();
+    clearCustomFileInput();
+    setElementValue("meme-title-input", "");
+    setElementValue("top-text-input", "");
+    setElementValue("bottom-text-input", "");
+    setElementValue("font-family-select", "Arial");
+    setElementValue("font-size-input", "48");
+    setElementValue("text-color-input", "#ffffff");
+    setElementValue("text-position-select", "TopAndBottom");
+    setElementValue("image-effect-select", "None");
+    setElementValue("image-fit-select", "Original");
+    updateFontSizeLabel();
+    updateTextPositionControls();
     updateEditorActionButtons();
     updateEditorSourceLabel("");
     setEditorStatus("Редактор очищено. Оберіть шаблон або завантажте фото.", "info");
@@ -901,7 +899,7 @@ function cancelEditorCreation() {
         return;
     }
 
-    clearEditor();
+    resetEditorCompletely();
     openGalleryView();
 }
 
@@ -1246,15 +1244,8 @@ function resetTemplateForm() {
     }
 }
 
-function useTemplateInEditor(templateId) {
-    const select = document.getElementById("editor-template-select");
-
-    if (!select) {
-        return;
-    }
-
-    select.value = String(templateId);
-    select.dispatchEvent(new Event("change"));
+async function useTemplateInEditor(templateId) {
+    await loadTemplateIntoEditor(templateId);
 }
 
 function hasActiveCategories() {
@@ -1519,11 +1510,11 @@ function drawMemeText(ctx, canvas) {
         drawWrappedText(ctx, topText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
         drawWrappedText(ctx, bottomText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
     } else if (position === "Top") {
-        drawWrappedText(ctx, topText || bottomText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
+        drawWrappedText(ctx, topText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
     } else if (position === "Center") {
-        drawWrappedText(ctx, [topText, bottomText].filter(Boolean).join(" "), canvas.width / 2, canvas.height / 2, maxWidth, lineHeight, "center");
+        drawWrappedText(ctx, topText, canvas.width / 2, canvas.height / 2, maxWidth, lineHeight, "center");
     } else if (position === "Bottom") {
-        drawWrappedText(ctx, bottomText || topText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
+        drawWrappedText(ctx, bottomText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
     }
 }
 
@@ -1589,21 +1580,6 @@ function wrapText(ctx, text, maxWidth) {
     }
 
     return lines;
-}
-
-function downloadCanvasMeme() {
-    if (!currentImage) {
-        setEditorStatus("Спочатку оберіть або завантажте зображення.", "error");
-        return;
-    }
-
-    renderCanvas();
-
-    const canvas = document.getElementById("meme-canvas");
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = "memoid-meme.png";
-    link.click();
 }
 
 function downloadGeneratedMeme(meme) {
@@ -1687,6 +1663,12 @@ async function saveMemeToGallery() {
         return;
     }
 
+    const titleValidationError = validateMemeTitle();
+    if (titleValidationError) {
+        setEditorStatus(titleValidationError, "error");
+        return;
+    }
+
     const saveButton = document.getElementById("save-meme-button");
 
     try {
@@ -1720,22 +1702,40 @@ async function saveMemeToGallery() {
 
 function buildGeneratedMemePayload(imagePath) {
     const sourceType = currentSourceType === "Template" ? "Template" : "Custom";
+    const title = getEditorValue("meme-title-input", "").trim();
+    const textPosition = getEditorValue("text-position-select", "TopAndBottom");
+    const topText = getEditorValue("top-text-input", "").trim();
+    const bottomText = getEditorValue("bottom-text-input", "").trim();
 
     return {
-        title: getEditorValue("meme-title-input", "").trim() || "Без назви",
+        title,
         imagePath,
         sourceType,
         memeTemplateId: sourceType === "Template" ? currentTemplateId : null,
         originalImagePath: sourceType === "Custom" ? currentOriginalImagePath : null,
-        topText: getEditorValue("top-text-input", "").trim() || null,
-        bottomText: getEditorValue("bottom-text-input", "").trim() || null,
-        textPosition: getEditorValue("text-position-select", "TopAndBottom"),
+        topText: ["TopAndBottom", "Top", "Center"].includes(textPosition) ? topText || null : null,
+        bottomText: ["TopAndBottom", "Bottom"].includes(textPosition) ? bottomText || null : null,
+        textPosition,
         fontFamily: getEditorValue("font-family-select", "Arial"),
         fontSize: Number(getEditorValue("font-size-input", "48")),
         textColor: getEditorValue("text-color-input", "#ffffff"),
         textBackgroundColor: null,
         appliedEffect: buildAppliedEffectMetadata()
     };
+}
+
+function validateMemeTitle() {
+    const title = getEditorValue("meme-title-input", "").trim();
+
+    if (!title) {
+        return "Вкажіть назву мема.";
+    }
+
+    if (title.length < 3 || title.length > 20) {
+        return "Назва мема має містити від 3 до 20 символів.";
+    }
+
+    return null;
 }
 
 function buildAppliedEffectMetadata() {
@@ -1916,6 +1916,22 @@ function setTemplateFormStatus(type, message) {
     status.textContent = message;
 }
 
+function setCreateStatus(type, message) {
+    const status = document.getElementById("create-status");
+
+    if (!status) {
+        return;
+    }
+
+    status.classList.remove("success", "error", "loading", "is-hidden");
+    if (type === "success" || type === "error" || type === "loading") {
+        status.classList.add(type);
+    }
+
+    status.textContent = message || "";
+    status.classList.toggle("is-hidden", !message);
+}
+
 function createCard() {
     const card = document.createElement("article");
     card.className = "data-card";
@@ -2041,15 +2057,56 @@ function updateEditorActionButtons() {
     const hasImage = Boolean(currentImage);
 
     [
-        "redraw-meme-button",
-        "download-meme-button",
-        "save-meme-button"
+        "save-meme-button",
+        "clear-editor-button"
     ].forEach((id) => {
         const button = document.getElementById(id);
         if (button) {
             button.disabled = !hasImage;
         }
     });
+}
+
+function updateTextPositionControls() {
+    const position = getEditorValue("text-position-select", "TopAndBottom");
+    const topLabel = document.getElementById("top-text-label");
+    const bottomLabel = document.getElementById("bottom-text-label");
+    const topInput = document.getElementById("top-text-input");
+    const bottomInput = document.getElementById("bottom-text-input");
+    const topField = topInput ? topInput.closest(".field") : null;
+    const bottomField = bottomInput ? bottomInput.closest(".field") : null;
+
+    if (!topInput || !bottomInput) {
+        return;
+    }
+
+    const showTop = position === "TopAndBottom" || position === "Top" || position === "Center";
+    const showBottom = position === "TopAndBottom" || position === "Bottom";
+
+    topInput.disabled = !showTop;
+    bottomInput.disabled = !showBottom;
+
+    if (topField) {
+        topField.classList.toggle("text-field-hidden", !showTop);
+    }
+
+    if (bottomField) {
+        bottomField.classList.toggle("text-field-hidden", !showBottom);
+    }
+
+    if (topLabel) {
+        topLabel.textContent = position === "Center"
+            ? "Текст по центру"
+            : position === "Top"
+                ? "Текст зверху"
+                : "Верхній текст";
+    }
+
+    if (bottomLabel) {
+        bottomLabel.textContent = position === "Bottom"
+            ? "Текст знизу"
+            : "Нижній текст";
+    }
 }
 
 function updateEditorSourceLabel(label) {
