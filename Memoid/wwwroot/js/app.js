@@ -250,6 +250,7 @@ function bindEditorControls() {
         }
     });
 
+    bindManualPositionControls();
     updateFontSizeLabel();
     updateTextPositionControls();
     clearCanvas();
@@ -860,6 +861,7 @@ function resetEditorModifications(showStatus = true) {
     setElementValue("text-position-select", "TopAndBottom");
     setElementValue("image-effect-select", "None");
     setElementValue("image-fit-select", "Original");
+    resetManualPositionControls();
     updateFontSizeLabel();
     updateTextPositionControls();
     renderCanvas();
@@ -887,6 +889,7 @@ function resetEditorCompletely() {
     setElementValue("text-position-select", "TopAndBottom");
     setElementValue("image-effect-select", "None");
     setElementValue("image-fit-select", "Original");
+    resetManualPositionControls();
     updateFontSizeLabel();
     updateTextPositionControls();
     updateEditorActionButtons();
@@ -1498,23 +1501,39 @@ function drawMemeText(ctx, canvas) {
     const lineHeight = Math.round(fontSize * 1.16);
     const padding = Math.max(16, Math.round(fontSize * 0.55));
     const maxWidth = canvas.width - padding * 2;
+    const topY = padding + lineHeight * 0.55;
+    const bottomY = canvas.height - padding - lineHeight * 0.55;
 
     ctx.font = `900 ${fontSize}px ${fontFamily}`;
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.fillStyle = textColor;
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = Math.max(3, Math.round(fontSize / 12));
 
     if (position === "TopAndBottom") {
-        drawWrappedText(ctx, topText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
-        drawWrappedText(ctx, bottomText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
+        drawWrappedText(ctx, topText, canvas.width / 2, topY, maxWidth, lineHeight, "top");
+        drawWrappedText(ctx, bottomText, canvas.width / 2, bottomY, maxWidth, lineHeight, "bottom");
     } else if (position === "Top") {
-        drawWrappedText(ctx, topText, canvas.width / 2, padding, maxWidth, lineHeight, "top");
+        drawWrappedText(ctx, topText, canvas.width / 2, topY, maxWidth, lineHeight, "top");
     } else if (position === "Center") {
         drawWrappedText(ctx, topText, canvas.width / 2, canvas.height / 2, maxWidth, lineHeight, "center");
     } else if (position === "Bottom") {
-        drawWrappedText(ctx, bottomText, canvas.width / 2, canvas.height - padding, maxWidth, lineHeight, "bottom");
+        drawWrappedText(ctx, bottomText, canvas.width / 2, bottomY, maxWidth, lineHeight, "bottom");
+    } else if (position === "Manual") {
+        const coordinates = getManualPositionCoordinates();
+        const manualMaxWidth = Math.max(80, canvas.width - padding * 4);
+        const point = getManualTextPoint(canvas, coordinates, padding, lineHeight, manualMaxWidth);
+        drawWrappedText(
+            ctx,
+            topText,
+            point.x,
+            point.y,
+            manualMaxWidth,
+            lineHeight,
+            "center"
+        );
     }
 }
 
@@ -1713,7 +1732,7 @@ function buildGeneratedMemePayload(imagePath) {
         sourceType,
         memeTemplateId: sourceType === "Template" ? currentTemplateId : null,
         originalImagePath: sourceType === "Custom" ? currentOriginalImagePath : null,
-        topText: ["TopAndBottom", "Top", "Center"].includes(textPosition) ? topText || null : null,
+        topText: ["TopAndBottom", "Top", "Center", "Manual"].includes(textPosition) ? topText || null : null,
         bottomText: ["TopAndBottom", "Bottom"].includes(textPosition) ? bottomText || null : null,
         textPosition,
         fontFamily: getEditorValue("font-family-select", "Arial"),
@@ -1741,20 +1760,25 @@ function validateMemeTitle() {
 function buildAppliedEffectMetadata() {
     const effect = getEditorValue("image-effect-select", "None");
     const fitMode = getEditorValue("image-fit-select", "Original");
+    const textPosition = getEditorValue("text-position-select", "TopAndBottom");
+    const parts = [];
 
-    if (effect === "None" && fitMode === "Original") {
-        return "None";
+    if (effect !== "None") {
+        parts.push(effect);
+    } else {
+        parts.push("None");
     }
 
-    if (effect !== "None" && fitMode === "Original") {
-        return effect;
+    if (fitMode !== "Original") {
+        parts.push(`Fit: ${fitMode}`);
     }
 
-    if (effect === "None") {
-        return `Fit: ${fitMode}`;
+    if (textPosition === "Manual") {
+        const coordinates = getManualPositionCoordinates();
+        parts.push(`Position: ${coordinates.x}%,${coordinates.y}%`);
     }
 
-    return `${effect} + Fit: ${fitMode}`;
+    return parts.join(" + ");
 }
 
 function canvasToBlob(canvas) {
@@ -1783,6 +1807,62 @@ function loadImage(src) {
     });
 }
 
+function getTextPositionLabel(position) {
+    const labels = {
+        TopAndBottom: "Зверху і знизу",
+        Top: "Зверху",
+        Bottom: "Знизу",
+        Center: "По центру",
+        Manual: "За координатами"
+    };
+
+    return labels[position] || position || "";
+}
+
+function getMemeTextSummary(meme) {
+    const position = meme.textPosition || "TopAndBottom";
+    const parts = [];
+
+    if (position === "TopAndBottom") {
+        if (meme.topText) {
+            parts.push(`Верхній текст: ${meme.topText}`);
+        }
+
+        if (meme.bottomText) {
+            parts.push(`Нижній текст: ${meme.bottomText}`);
+        }
+    } else if (position === "Top" && meme.topText) {
+        parts.push(`Текст зверху: ${meme.topText}`);
+    } else if (position === "Bottom" && meme.bottomText) {
+        parts.push(`Текст знизу: ${meme.bottomText}`);
+    } else if (position === "Center" && meme.topText) {
+        parts.push(`Текст по центру: ${meme.topText}`);
+    } else if (position === "Manual" && meme.topText) {
+        parts.push(`Текст за координатами: ${meme.topText}`);
+        const coordinates = getManualCoordinatesFromEffect(meme.appliedEffect);
+        if (coordinates) {
+            parts.push(`Координати: ${coordinates}`);
+        }
+    }
+
+    if (parts.length === 0 && (meme.topText || meme.bottomText)) {
+        if (meme.topText) {
+            parts.push(`Текст: ${meme.topText}`);
+        }
+
+        if (meme.bottomText) {
+            parts.push(`Додатковий текст: ${meme.bottomText}`);
+        }
+    }
+
+    return parts;
+}
+
+function getManualCoordinatesFromEffect(effect) {
+    const match = String(effect || "").match(/Position:\s*([0-9]{1,3}%,[0-9]{1,3}%)/);
+    return match ? match[1] : "";
+}
+
 function openMemePreview(meme) {
     currentPreviewMeme = meme;
 
@@ -1798,17 +1878,24 @@ function openMemePreview(meme) {
     }
 
     title.textContent = meme.title || "Без назви";
-    meta.textContent = [
-        `Джерело: ${formatSourceType(meme.sourceType)}`,
-        meme.templateTitle ? `шаблон: ${meme.templateTitle}` : null,
-        `створено: ${formatDate(meme.createdAt)}`,
-        meme.appliedEffect ? `ефект: ${formatEffectName(meme.appliedEffect)}` : null
-    ].filter(Boolean).join(" · ");
+    clearElement(meta);
+    clearElement(text);
 
-    text.textContent = [
-        meme.topText ? `Верхній текст: ${meme.topText}` : null,
-        meme.bottomText ? `Нижній текст: ${meme.bottomText}` : null
-    ].filter(Boolean).join(" | ");
+    [
+        ["Джерело", formatSourceType(meme.sourceType)],
+        meme.templateTitle ? ["Шаблон", meme.templateTitle] : null,
+        meme.textPosition ? ["Позиція тексту", getTextPositionLabel(meme.textPosition)] : null,
+        ["Створено", formatDate(meme.createdAt)],
+        meme.appliedEffect ? ["Ефект", formatEffectName(meme.appliedEffect)] : null
+    ].filter(Boolean).forEach(([label, value]) => {
+        meta.append(createPreviewMetaRow(label, value));
+    });
+
+    const textRows = getMemeTextSummary(meme);
+    textRows.forEach((row) => {
+        text.append(createTextElement("p", row, "preview-text-row"));
+    });
+    text.hidden = textRows.length === 0;
 
     placeholder.classList.add("is-hidden");
     image.classList.remove("is-hidden");
@@ -1829,6 +1916,21 @@ function openMemePreview(meme) {
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("modal-open");
+}
+
+function createPreviewMetaRow(label, value) {
+    const row = document.createElement("p");
+    row.className = "preview-meta-row";
+
+    const labelElement = document.createElement("span");
+    labelElement.className = "preview-meta-label";
+    labelElement.textContent = `${label}: `;
+
+    const valueElement = document.createElement("span");
+    valueElement.textContent = value || "немає даних";
+
+    row.append(labelElement, valueElement);
+    return row;
 }
 
 function closeMemePreview() {
@@ -2073,18 +2175,21 @@ function updateTextPositionControls() {
     const bottomLabel = document.getElementById("bottom-text-label");
     const topInput = document.getElementById("top-text-input");
     const bottomInput = document.getElementById("bottom-text-input");
-    const topField = topInput ? topInput.closest(".field") : null;
-    const bottomField = bottomInput ? bottomInput.closest(".field") : null;
+    const topField = document.getElementById("top-text-field") || (topInput ? topInput.closest(".field") : null);
+    const bottomField = document.getElementById("bottom-text-field") || (bottomInput ? bottomInput.closest(".field") : null);
+    const manualControls = document.getElementById("manual-position-controls");
 
     if (!topInput || !bottomInput) {
         return;
     }
 
-    const showTop = position === "TopAndBottom" || position === "Top" || position === "Center";
+    const showTop = position === "TopAndBottom" || position === "Top" || position === "Center" || position === "Manual";
     const showBottom = position === "TopAndBottom" || position === "Bottom";
 
     topInput.disabled = !showTop;
     bottomInput.disabled = !showBottom;
+    topInput.placeholder = getTopTextPlaceholder(position);
+    bottomInput.placeholder = getBottomTextPlaceholder(position);
 
     if (topField) {
         topField.classList.toggle("text-field-hidden", !showTop);
@@ -2095,18 +2200,124 @@ function updateTextPositionControls() {
     }
 
     if (topLabel) {
-        topLabel.textContent = position === "Center"
-            ? "Текст по центру"
-            : position === "Top"
-                ? "Текст зверху"
-                : "Верхній текст";
+        topLabel.textContent = getTopTextLabel(position);
     }
 
     if (bottomLabel) {
-        bottomLabel.textContent = position === "Bottom"
-            ? "Текст знизу"
-            : "Нижній текст";
+        bottomLabel.textContent = getBottomTextLabel(position);
     }
+
+    if (manualControls) {
+        manualControls.hidden = position !== "Manual";
+    }
+}
+
+function getTopTextLabel(position) {
+    if (position === "Top") {
+        return "Текст зверху";
+    }
+
+    if (position === "Center") {
+        return "Текст по центру";
+    }
+
+    if (position === "Manual") {
+        return "Текст";
+    }
+
+    return "Верхній текст";
+}
+
+function getBottomTextLabel(position) {
+    return position === "Bottom" ? "Текст знизу" : "Нижній текст";
+}
+
+function getTopTextPlaceholder(position) {
+    return getTopTextLabel(position);
+}
+
+function getBottomTextPlaceholder(position) {
+    return getBottomTextLabel(position);
+}
+
+function bindManualPositionControls() {
+    ["x", "y"].forEach((axis) => {
+        const range = document.getElementById(`manual-text-${axis}`);
+        const number = document.getElementById(`manual-text-${axis}-number`);
+
+        if (range) {
+            range.addEventListener("input", () => syncManualPositionInputs(axis, "range"));
+        }
+
+        if (number) {
+            number.addEventListener("input", () => syncManualPositionInputs(axis, "number"));
+        }
+    });
+}
+
+function syncManualPositionInputs(axis, source) {
+    const range = document.getElementById(`manual-text-${axis}`);
+    const number = document.getElementById(`manual-text-${axis}-number`);
+
+    if (!range || !number) {
+        return;
+    }
+
+    const sourceElement = source === "number" ? number : range;
+    const value = clampPercent(sourceElement.value);
+    range.value = String(value);
+    number.value = String(value);
+    renderCanvas();
+}
+
+function resetManualPositionControls() {
+    ["x", "y"].forEach((axis) => {
+        const range = document.getElementById(`manual-text-${axis}`);
+        const number = document.getElementById(`manual-text-${axis}-number`);
+
+        if (range) {
+            range.value = "50";
+        }
+
+        if (number) {
+            number.value = "50";
+        }
+    });
+}
+
+function getManualPositionCoordinates() {
+    return {
+        x: clampPercent(getEditorValue("manual-text-x", "50")),
+        y: clampPercent(getEditorValue("manual-text-y", "50"))
+    };
+}
+
+function getManualTextPoint(canvas, coordinates, padding, lineHeight, maxTextWidth) {
+    const halfTextWidth = Math.min(maxTextWidth / 2, Math.max(0, canvas.width / 2 - padding));
+    const minX = padding + halfTextWidth;
+    const maxX = canvas.width - padding - halfTextWidth;
+    const minY = padding + lineHeight / 2;
+    const maxY = canvas.height - padding - lineHeight / 2;
+
+    const safeMinX = maxX >= minX ? minX : canvas.width / 2;
+    const safeMaxX = maxX >= minX ? maxX : canvas.width / 2;
+    const safeMinY = maxY >= minY ? minY : canvas.height / 2;
+    const safeMaxY = maxY >= minY ? maxY : canvas.height / 2;
+
+    return {
+        x: safeMinX + (safeMaxX - safeMinX) * coordinates.x / 100,
+        y: safeMinY + (safeMaxY - safeMinY) * coordinates.y / 100
+    };
+}
+
+function clampPercent(value) {
+    const number = Number(value);
+
+    if (Number.isNaN(number)) {
+        return 50;
+    }
+
+    return Math.min(100, Math.max(0, Math.round(number)));
 }
 
 function updateEditorSourceLabel(label) {
@@ -2173,6 +2384,10 @@ function formatEffectName(effect) {
 
     if (effect && effect.startsWith("Fit: ")) {
         return `Кадрування: ${formatEffectName(effect.replace("Fit: ", ""))}`;
+    }
+
+    if (effect && effect.startsWith("Position: ")) {
+        return `Координати: ${effect.replace("Position: ", "")}`;
     }
 
     const effects = {

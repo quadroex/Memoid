@@ -234,12 +234,12 @@
                             <input id="meme-title-input" type="text" maxlength="20" placeholder="Назва мема">
                         </div>
 
-                        <div class="field">
+                        <div class="field" id="top-text-field">
                             <label id="top-text-label" for="top-text-input">Верхній текст</label>
                             <input id="top-text-input" type="text" placeholder="Верхній текст">
                         </div>
 
-                        <div class="field">
+                        <div class="field" id="bottom-text-field">
                             <label id="bottom-text-label" for="bottom-text-input">Нижній текст</label>
                             <input id="bottom-text-input" type="text" placeholder="Нижній текст">
                         </div>
@@ -276,7 +276,25 @@
                                     <option value="Top">Тільки зверху</option>
                                     <option value="Center">По центру</option>
                                     <option value="Bottom">Тільки знизу</option>
+                                    <option value="Manual">За координатами</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div id="manual-position-controls" class="manual-position-controls" hidden>
+                            <div class="field">
+                                <label for="manual-text-x">X, %</label>
+                                <div class="range-pair">
+                                    <input id="manual-text-x" type="range" min="0" max="100" value="50">
+                                    <input id="manual-text-x-number" type="number" min="0" max="100" value="50">
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label for="manual-text-y">Y, %</label>
+                                <div class="range-pair">
+                                    <input id="manual-text-y" type="range" min="0" max="100" value="50">
+                                    <input id="manual-text-y-number" type="number" min="0" max="100" value="50">
+                                </div>
                             </div>
                         </div>
 
@@ -322,8 +340,8 @@
             </div>
             <div class="modal-details">
                 <h3 id="meme-preview-title">Перегляд мема</h3>
-                <p id="meme-preview-meta"></p>
-                <p id="meme-preview-text"></p>
+                <div id="meme-preview-meta" class="preview-meta-list"></div>
+                <div id="meme-preview-text" class="preview-text-list"></div>
                 <div class="modal-actions">
                     <button id="meme-preview-download" class="button button-secondary" type="button">Завантажити</button>
                     <button id="meme-preview-favorite" class="button button-secondary" type="button">В улюблені</button>
